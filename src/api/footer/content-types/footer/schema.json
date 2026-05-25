@@ -1,0 +1,33 @@
+{
+  "kind": "singleType",
+  "collectionName": "footers",
+  "info": {
+    "singularName": "footer",
+    "pluralName": "footers",
+    "displayName": "Footer"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "footerBusinessName": {
+      "type": "string"
+    },
+    "footerMessageUnderBusinessName": {
+      "type": "string"
+    },
+    "footerInstagramLink": {
+      "type": "string"
+    },
+    "footerFacebookLink": {
+      "type": "string"
+    },
+    "privacy": {
+      "type": "blocks"
+    },
+    "termConditions": {
+      "type": "blocks"
+    }
+  }
+}

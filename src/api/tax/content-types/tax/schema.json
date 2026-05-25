@@ -1,0 +1,30 @@
+{
+  "kind": "singleType",
+  "collectionName": "taxes",
+  "info": {
+    "singularName": "tax",
+    "pluralName": "taxes",
+    "displayName": "Tax"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "taxPercent": {
+      "type": "decimal"
+    },
+    "taxName": {
+      "type": "string"
+    },
+    "taxState": {
+      "type": "enumeration",
+      "enum": [
+        "FL"
+      ]
+    },
+    "taxActive": {
+      "type": "boolean"
+    }
+  }
+}

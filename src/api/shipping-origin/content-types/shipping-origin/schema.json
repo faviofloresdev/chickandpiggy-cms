@@ -1,0 +1,55 @@
+{
+  "kind": "collectionType",
+  "collectionName": "shipping_origins",
+  "info": {
+    "singularName": "shipping-origin",
+    "pluralName": "shipping-origins",
+    "displayName": "Shipping Origin",
+    "description": "Origin locations used for shipping quotes and storefront display"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "label": {
+      "type": "string",
+      "required": true
+    },
+    "addressLine1": {
+      "type": "string"
+    },
+    "addressLine2": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string",
+      "required": true
+    },
+    "state": {
+      "type": "string",
+      "required": true
+    },
+    "postalCode": {
+      "type": "string",
+      "required": true
+    },
+    "country": {
+      "type": "string",
+      "required": true,
+      "default": "US"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "isDefault": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

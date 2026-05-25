@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "product_options",
+  "info": {
+    "singularName": "product-option",
+    "pluralName": "product-options",
+    "displayName": "ProductOption"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": [
+        "color",
+        "package",
+        "other"
+      ]
+    },
+    "option_values": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::option-value.option-value"
+    }
+  }
+}

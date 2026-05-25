@@ -1,0 +1,36 @@
+{
+  "kind": "singleType",
+  "collectionName": "featured_products",
+  "info": {
+    "singularName": "featured-product",
+    "pluralName": "featured-products",
+    "displayName": "FeaturedProduct"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "featuredProductTitle": {
+      "type": "string"
+    },
+    "featuredProductTopButtonLabel": {
+      "type": "string"
+    },
+    "featuredProductTopButtonHref": {
+      "type": "string"
+    },
+    "featuredProductBottomButtonLabel": {
+      "type": "string"
+    },
+    "featuredProductBottomButtonHref": {
+      "type": "string"
+    },
+    "featuredProductLimit": {
+      "type": "integer"
+    },
+    "featuredProductNotProductsText": {
+      "type": "string"
+    }
+  }
+}
