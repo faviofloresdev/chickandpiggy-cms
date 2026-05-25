@@ -1,0 +1,30 @@
+{
+  "kind": "collectionType",
+  "collectionName": "option_values",
+  "info": {
+    "singularName": "option-value",
+    "pluralName": "option-values",
+    "displayName": "OptionValue"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "label": {
+      "type": "string"
+    },
+    "value": {
+      "type": "string"
+    },
+    "position": {
+      "type": "integer"
+    },
+    "product_variants": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::product-variant.product-variant",
+      "mappedBy": "option_values"
+    }
+  }
+}

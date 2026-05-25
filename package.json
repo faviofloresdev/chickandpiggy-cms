@@ -1,0 +1,40 @@
+{
+  "name": "chickandpiggy-cms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chick and Piggy CMS and checkout backend built with Strapi",
+  "scripts": {
+    "build": "strapi build",
+    "console": "strapi console",
+    "deploy": "strapi deploy",
+    "dev": "strapi develop",
+    "develop": "strapi develop",
+    "seed:example": "node ./scripts/seed.js",
+    "start": "strapi start",
+    "strapi": "strapi",
+    "upgrade": "npx @strapi/upgrade latest",
+    "upgrade:dry": "npx @strapi/upgrade latest --dry"
+  },
+  "dependencies": {
+    "@strapi/plugin-cloud": "5.46.0",
+    "@strapi/plugin-users-permissions": "5.46.0",
+    "@strapi/provider-upload-aws-s3": "^5.46.1",
+    "@strapi/strapi": "5.46.0",
+    "better-sqlite3": "12.8.0",
+    "fs-extra": "^10.0.0",
+    "mime-types": "^2.1.27",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^6.0.0",
+    "stripe": "^22.1.1",
+    "styled-components": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0 <=24.x.x",
+    "npm": ">=6.0.0"
+  },
+  "strapi": {
+    "uuid": "99870de4-1800-48e4-99bc-ce3fafe245c4",
+    "installId": "710a82ca16defb4bf2594ed3e94992f0594f5578d713e321ab2c92b8128cb409"
+  }
+}
