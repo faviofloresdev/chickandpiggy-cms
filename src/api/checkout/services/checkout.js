@@ -3,6 +3,8 @@ const taxService = require('./taxService');
 const shippingService = require('./shippingService');
 const stripeService = require('./stripeService');
 const labelQueue = require('./shipping/labelQueue');
+const { recordSecurityMetric } = require('../utils/http');
+const { createCheckoutSessionToken, verifyCheckoutSessionToken } = require('../utils/session');
 
 function createError(message, status = 400) {
   const err = new Error(message);
@@ -263,6 +265,16 @@ function hasTaxAddress(shipping) {
   );
 }
 
+function assertCheckoutSession(payload) {
+  if (!payload?.checkoutSessionToken) {
+    const err = createError('Checkout session token is required', 403);
+    err.code = 'CHECKOUT_SESSION_REQUIRED';
+    throw err;
+  }
+
+  return verifyCheckoutSessionToken(payload.checkoutSessionToken, payload);
+}
+
 module.exports = {
   async discount(payload) {
     if (!payload?.discountCode) {
@@ -281,6 +293,7 @@ module.exports = {
       };
     }
 
+    assertCheckoutSession(payload);
     const cart = await cartService.validateAndCalculate(payload.items);
     const discount = await resolveCheckoutDiscount(payload, cart.subtotal);
     const taxableSubtotalCents = Math.max(0, cart.subtotal - (discount?.amountCents || 0));
@@ -296,10 +309,20 @@ module.exports = {
       shippingCents: 0,
     });
 
+    recordSecurityMetric('discount.evaluated', {
+      path: '/internal/checkout/discount',
+      method: 'POST',
+      ip: 'internal',
+      discountCode: payload.discountCode,
+      itemCount: cart.items.length,
+      subtotalCents: cart.subtotal,
+    });
+
     return {
       discount,
       items: cart.items,
       totals,
+      checkoutSessionToken: payload.checkoutSessionToken,
     };
   },
 
@@ -336,11 +359,13 @@ module.exports = {
       taxCents: tax.amount,
       shippingCents: 0,
     });
+    const checkoutSessionToken = createCheckoutSessionToken(payload);
 
     return {
       items: cart.items,
       discount,
       totals,
+      checkoutSessionToken,
       originLabel: origin.label,
       shippingFingerprint: shippingRates.fingerprint,
       packageSnapshot: shippingRates.packageSnapshot,
@@ -357,6 +382,7 @@ module.exports = {
 
     requireShippingAddress(payload.shipping);
     requireCustomer(payload.customer);
+    assertCheckoutSession(payload);
 
     const { items, shipping, customer } = payload;
 
@@ -449,12 +475,24 @@ module.exports = {
       });
     }
 
+    recordSecurityMetric('payment_intent.created', {
+      path: '/internal/checkout/payment-intent',
+      method: 'POST',
+      ip: 'internal',
+      orderId: order.id,
+      paymentIntentId: paymentIntent.id,
+      discountCode: discount?.code || null,
+      totalCents: Math.round(totals.total * 100),
+      itemCount: cart.items.length,
+    });
+
     return {
       orderId: order.id,
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
       items: cart.items,
       discount,
+      checkoutSessionToken: payload.checkoutSessionToken,
       shippingOptions,
       shippingHighlights: shippingRates.shippingHighlights,
       selectedShippingOption: selected,

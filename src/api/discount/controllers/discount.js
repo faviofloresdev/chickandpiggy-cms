@@ -2,6 +2,7 @@
 
 const { createCoreController } = require('@strapi/strapi').factories;
 const { sanitize } = require('../../checkout/utils/validate');
+const { respondWithSanitizedError } = require('../../checkout/utils/http');
 
 module.exports = createCoreController('api::discount.discount', ({ strapi }) => ({
   async lookup(ctx) {
@@ -11,9 +12,7 @@ module.exports = createCoreController('api::discount.discount', ({ strapi }) => 
       });
       ctx.body = { discount: result };
     } catch (err) {
-      ctx.status = err.status || 400;
-      ctx.body = { error: err.message };
-      strapi.log.error('discount.lookup error', err);
+      respondWithSanitizedError(ctx, err, 'discount.lookup error');
     }
   },
 
@@ -23,9 +22,7 @@ module.exports = createCoreController('api::discount.discount', ({ strapi }) => 
       const result = await strapi.service('api::checkout.checkout').discount(payload);
       ctx.body = result;
     } catch (err) {
-      ctx.status = err.status || 400;
-      ctx.body = { error: err.message };
-      strapi.log.error('discount.apply error', err);
+      respondWithSanitizedError(ctx, err, 'discount.apply error', ctx.request.body);
     }
   },
 }));

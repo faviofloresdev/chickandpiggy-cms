@@ -1,4 +1,5 @@
 const { sanitize } = require('../../checkout/utils/validate');
+const { respondWithSanitizedError } = require('../../checkout/utils/http');
 
 module.exports = {
   async checkout(ctx) {
@@ -14,9 +15,7 @@ module.exports = {
 
       ctx.body = result;
     } catch (err) {
-      ctx.status = err.status || 400;
-      ctx.body = { error: err.message };
-      strapi.log.error('stripe.checkout compatibility error', err);
+      respondWithSanitizedError(ctx, err, 'stripe.checkout compatibility error', ctx.request.body);
     }
   },
 
@@ -25,9 +24,7 @@ module.exports = {
       const result = await strapi.service('api::checkout.checkout').handleWebhook(ctx);
       ctx.body = result;
     } catch (err) {
-      ctx.status = err.status || 400;
-      ctx.body = { error: err.message };
-      strapi.log.error('stripe.webhook compatibility error', err);
+      respondWithSanitizedError(ctx, err, 'stripe.webhook compatibility error');
     }
   },
 };
