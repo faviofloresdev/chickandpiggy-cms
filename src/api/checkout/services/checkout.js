@@ -57,6 +57,21 @@ function buildItemSummary(items = []) {
   return items.map((item) => `${item.title} x${item.quantity}`).join('|');
 }
 
+function isReusableOrder(order) {
+  if (!order?.id) {
+    return false;
+  }
+
+  const normalizedStatus = normalizeComparableString(order.status);
+  const normalizedPaymentStatus = normalizeComparableString(order.paymentStatus);
+
+  if (normalizedStatus !== 'pending') {
+    return false;
+  }
+
+  return !['succeeded', 'canceled'].includes(normalizedPaymentStatus);
+}
+
 function normalizeTotals({
   subtotalCents,
   discountCents = 0,
@@ -169,7 +184,7 @@ async function findReusablePendingOrder({ payload, cart, selectedShippingOption 
 
   const candidates = Array.isArray(orders) ? orders : [orders];
   return candidates.find((order) => {
-    if (!order?.id) {
+    if (!isReusableOrder(order)) {
       return false;
     }
 
@@ -424,6 +439,10 @@ module.exports = {
       });
     }
 
+    if (!isReusableOrder(order)) {
+      order = null;
+    }
+
     const customerRecord = await upsertCustomerFromPayload({
       ...payload,
       customer,
@@ -446,7 +465,7 @@ module.exports = {
       amount: Math.round(totals.total * 100),
       currency: 'usd',
       metadata,
-      paymentIntentId: payload.paymentIntentId || order?.paymentIntentId || undefined,
+      paymentIntentId: order?.paymentIntentId || undefined,
     });
 
     order = await upsertOrder({

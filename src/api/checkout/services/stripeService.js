@@ -2,6 +2,11 @@ const Stripe = require('stripe');
 
 const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const unparsedBodySymbol = Symbol.for('unparsedBody');
+const REUSABLE_PAYMENT_INTENT_STATUSES = new Set([
+  'requires_payment_method',
+  'requires_confirmation',
+  'requires_action',
+]);
 
 module.exports = {
   async createOrUpdatePaymentIntent({ amount, currency = 'usd', metadata = {}, paymentIntentId }) {
@@ -16,13 +21,17 @@ module.exports = {
     };
 
     if (paymentIntentId) {
-      // attempt update
-      const pi = await stripe.paymentIntents.update(paymentIntentId, params);
-      return pi;
+      const existingIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      if (REUSABLE_PAYMENT_INTENT_STATUSES.has(existingIntent.status)) {
+        return stripe.paymentIntents.update(paymentIntentId, params);
+      }
+
+      strapi.log.warn(
+        `stripe.paymentIntent stale intent detected; creating replacement. paymentIntentId=${paymentIntentId} status=${existingIntent.status}`
+      );
     }
 
-    const pi = await stripe.paymentIntents.create(params);
-    return pi;
+    return stripe.paymentIntents.create(params);
   },
 
   async constructWebhookEvent(ctx) {
