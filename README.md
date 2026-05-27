@@ -49,6 +49,9 @@ cp .env.example .env
 - `JWT_SECRET`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
+- `PUBLIC_API_ALLOWED_ORIGINS`
+- `CHECKOUT_SESSION_SECRET`
+- `CHECKOUT_INTERNAL_API_KEY`
 
 4. Start the project in development:
 
@@ -90,11 +93,13 @@ Additional implementation notes live in [src/api/checkout/README.md](src/api/che
 
 When the frontend applies or updates a discount, it must keep reusing the same checkout session by sending back:
 
+- `checkoutSessionToken`
 - `orderId`
 - `paymentIntentId`
 - `discountCode`
 - `shipping.selectedShippingOptionId`
 
+The frontend must obtain `checkoutSessionToken` from `POST /api/checkout/quote` and send it back on discount application and `payment-intent`.
 If the frontend recalculates checkout without `orderId` or `paymentIntentId`, it can create a new pending order instead of updating the current one.
 
 ## Environment variables
@@ -108,8 +113,11 @@ Use [`.env.example`](.env.example) as the base template. The project includes co
 - FedEx, UPS, and USPS credentials
 - Cloudflare R2 media storage
 - Optional Redis-backed cache
+- Explicit public API origins and internal checkout route protection
+- Signed checkout sessions and endpoint exposure flags
 
 Do not commit your real `.env` file.
+Rotate any existing Strapi or Stripe secrets that were previously stored in tracked environment files.
 
 ## Cloudflare R2 uploads
 

@@ -1,19 +1,19 @@
 const { sanitize } = require('../utils/validate');
+const { respondWithSanitizedError } = require('../utils/http');
 
 module.exports = {
   async discount(ctx) {
     try {
       const payload = sanitize({
-        ...ctx.request.body,
-        ...ctx.request.query,
-        discountCode: ctx.params.code || ctx.request.query?.code || ctx.request.body?.discountCode,
+        items: ctx.request.body?.items,
+        shipping: ctx.request.body?.shipping,
+        discountCode: ctx.params.code || ctx.request.body?.discountCode,
+        checkoutSessionToken: ctx.request.body?.checkoutSessionToken,
       });
       const result = await strapi.service('api::checkout.checkout').discount(payload);
       ctx.body = result;
     } catch (err) {
-      ctx.status = err.status || 400;
-      ctx.body = { error: err.message };
-      strapi.log.error('checkout.discount error', err);
+      respondWithSanitizedError(ctx, err, 'checkout.discount error', ctx.request.body);
     }
   },
 
@@ -23,9 +23,7 @@ module.exports = {
       const result = await strapi.service('api::checkout.checkout').quote(payload);
       ctx.body = result;
     } catch (err) {
-      ctx.status = err.status || 400;
-      ctx.body = { error: err.message };
-      strapi.log.error('checkout.quote error', err);
+      respondWithSanitizedError(ctx, err, 'checkout.quote error', ctx.request.body);
     }
   },
 
@@ -35,9 +33,7 @@ module.exports = {
       const result = await strapi.service('api::checkout.checkout').paymentIntent(payload);
       ctx.body = result;
     } catch (err) {
-      ctx.status = err.status || 400;
-      ctx.body = { error: err.message };
-      strapi.log.error('checkout.paymentIntent error', err);
+      respondWithSanitizedError(ctx, err, 'checkout.paymentIntent error', ctx.request.body);
     }
   },
 
@@ -46,9 +42,7 @@ module.exports = {
       const result = await strapi.service('api::checkout.checkout').handleWebhook(ctx);
       ctx.body = result;
     } catch (err) {
-      ctx.status = err.status || 400;
-      ctx.body = { error: err.message };
-      strapi.log.error('checkout.webhook error', err);
+      respondWithSanitizedError(ctx, err, 'checkout.webhook error');
     }
   },
 
@@ -60,9 +54,7 @@ module.exports = {
       });
       ctx.body = result;
     } catch (err) {
-      ctx.status = err.status || 400;
-      ctx.body = { error: err.message };
-      strapi.log.error('checkout.createLabel error', err);
+      respondWithSanitizedError(ctx, err, 'checkout.createLabel error', ctx.request.body);
     }
   },
 };

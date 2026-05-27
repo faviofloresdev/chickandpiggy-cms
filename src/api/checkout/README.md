@@ -14,6 +14,13 @@ Shipping optimization guardrails
 Env vars
 - `STRIPE_SECRET_KEY` (required): Stripe server secret key.
 - `STRIPE_WEBHOOK_SECRET` (required for webhook): Stripe webhook signing secret.
+- `PUBLIC_API_ALLOWED_ORIGINS` (required in production): comma-separated storefront origins allowed to call public checkout APIs.
+- `CHECKOUT_SESSION_SECRET` (required in production): secret used to sign short-lived checkout session tokens.
+- `CHECKOUT_SESSION_TTL_MS` (optional): checkout session validity. Defaults to `900000` (15 minutes).
+- `CHECKOUT_INTERNAL_API_KEY` (required for `POST /api/checkout/labels`): shared secret for internal label creation calls.
+- `PUBLIC_DISCOUNT_LOOKUP_ENABLED` (optional): enables public `GET` discount lookup endpoints. Defaults to `false`.
+- `PUBLIC_LEGACY_STRIPE_ENABLED` (optional): enables the legacy `POST /api/stripe/checkout` compatibility proxy. Defaults to `false`.
+- `PUBLIC_SHIPPING_ORIGIN_ENABLED` (optional): enables public `GET /api/shipping-origins/active`. Defaults to `false`.
 - `FEDEX_CLIENT_ID` / `FEDEX_CLIENT_SECRET`: FedEx OAuth credentials. `FEDEX_API_KEY` is also accepted as legacy alias for client id.
 - `FEDEX_ACCOUNT_NUMBER` (optional): enables account-specific FedEx rates.
 - `UPS_CLIENT_ID` / `UPS_CLIENT_SECRET`: UPS OAuth credentials. `UPS_API_KEY` is also accepted as legacy alias for client id.
@@ -33,28 +40,21 @@ API endpoints
 - `POST /api/checkout/quote`: validates cart, recalculates subtotal and returns `shippingOptions`.
 - `POST /api/checkout/payment-intent`: validates cart, customer and shipping, creates or updates a Stripe PaymentIntent and persists an `order`.
 - `POST /api/checkout/webhook`: receives Stripe webhook events and marks orders as `paid` or `failed`.
-- `POST /api/checkout/labels`: enqueues async shipping-label generation for an order and stores label status in `order.metadata.shippingLabel`.
+- `POST /api/checkout/labels`: internal-only endpoint protected with `x-internal-api-key`; enqueues async shipping-label generation for an order and stores label status in `order.metadata.shippingLabel`.
 
 Frontend payload
 ```json
 {
   "items": [
     {
-      "id": "12",
       "productId": "12",
       "variantId": "34",
       "quantity": 2,
-      "shippingDetails": {
-        "weight": 1.2,
-        "weightUnit": "LB",
-        "length": 8,
-        "width": 6,
-        "height": 2,
-        "dimensionUnit": "IN"
-      },
-      "selectedOptions": {
-        "size": "M"
-      }
+      "selectedOptions": [
+        {
+          "optionValueId": "7"
+        }
+      ]
     }
   ],
   "customer": {
@@ -79,6 +79,7 @@ Frontend payload
     "country": "US"
   },
   "discountCode": "SUMMER10",
+  "checkoutSessionToken": "<from-quote>",
   "orderId": 1,
   "paymentIntentId": "pi_123"
 }
@@ -87,6 +88,7 @@ Frontend payload
 Quote response notes
 - `shippingOptions` now contains only the deduplicated `cheapest`, `fastest` and `recommended` options.
 - Each option includes a service-level `fingerprint`.
+- The response includes a short-lived `checkoutSessionToken` that must be reused for discount application and payment intent creation.
 - The response includes:
   - `shippingFingerprint`: hash generated from destination ZIP, cart items, total weight and package dimensions.
   - `packageSnapshot`: normalized package input used for cache lookup.
@@ -95,18 +97,22 @@ Quote response notes
 
 Notes
 - Prices are always recalculated on the server using `product.basePrice` and `product-variant.priceOverride`.
+- Checkout rejects extra top-level fields and extra item fields; requests must match the documented contract exactly.
+- `POST /api/checkout/payment-intent` and cart-aware discount evaluation require a valid `checkoutSessionToken` previously minted by `quote`.
 - If `discountCode` is sent, checkout validates it against the new `discount` collection and returns the applied discount in both `quote` and `payment-intent`.
 - The current `discount` model is intentionally basic: `name`, `code`, `active`, `type` and `value`.
 - Discount amounts are applied before tax calculation, persisted in the order, and linked back to the `discount` entry for audit/history.
 - If `variantId` is provided, the variant price is used first and the product price is the fallback.
+- Shipping dimensions and weights are rebuilt from catalog data; client-supplied shipping dimensions are no longer accepted.
 - Orders are persisted in `api::order.order` and line items in `api::order-item.order-item`.
-- Shipping origins can now be managed in the `shipping-origin` collection type. `GET /api/shipping-origins/active` returns the origin currently used by checkout and storefront display.
-- The legacy `/api/stripe/checkout` and `/api/stripe/webhook` endpoints now delegate to this checkout flow for compatibility.
+- Shipping origins can now be managed in the `shipping-origin` collection type. Public `GET /api/shipping-origins/active` is disabled by default and must be explicitly enabled if needed.
+- The legacy `/api/stripe/checkout` compatibility proxy is disabled by default and must be explicitly enabled if still required by an older frontend.
+- Public discount lookup endpoints are disabled by default and must be explicitly enabled if still required.
 - Carrier adapters now call live OAuth-based APIs for FedEx, UPS and USPS when mocks are disabled.
 - Carriers without valid credentials are skipped automatically and are not returned in `shippingOptions`.
 - The checkout now reads `product.weight`, `product.width`, `product.height` and `product.depth` automatically for parcel calculation.
-- If the storefront sends `items[].shippingDetails`, those values override the product physical attributes for that line.
 - If neither product attributes nor request values are present, live rates fall back to the `DEFAULT_PACKAGE_*` env values.
+- Public checkout, discount and compatibility endpoints now enforce explicit Origin checks, route-specific rate limits, generic client errors and abuse-oriented security logs.
 - Carrier HTTP calls now include timeout protection, exponential backoff retries, duration logging, failure logging and per-carrier response timing logs.
 - USPS transit-time lookups are cached as static metadata for 24 hours to reduce repeated standards API traffic.
 - The quote service deduplicates concurrent requests for the same package fingerprint so checkout refresh bursts do not fan out to carriers.
