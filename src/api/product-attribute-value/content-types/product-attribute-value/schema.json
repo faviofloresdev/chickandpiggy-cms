@@ -1,0 +1,39 @@
+{
+  "kind": "collectionType",
+  "collectionName": "product_attribute_values",
+  "info": {
+    "singularName": "product-attribute-value",
+    "pluralName": "product-attribute-values",
+    "displayName": "ProductAttributeValue"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "label": {
+      "type": "string"
+    },
+    "value": {
+      "type": "string"
+    },
+    "hex": {
+      "type": "string"
+    },
+    "position": {
+      "type": "integer"
+    },
+    "attribute": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::product-attribute.product-attribute",
+      "inversedBy": "values"
+    },
+    "variants": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::product-variant.product-variant",
+      "mappedBy": "attribute_values"
+    }
+  }
+}
