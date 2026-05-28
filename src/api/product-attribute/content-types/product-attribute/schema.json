@@ -1,0 +1,38 @@
+{
+  "kind": "collectionType",
+  "collectionName": "product_attributes",
+  "info": {
+    "singularName": "product-attribute",
+    "pluralName": "product-attributes",
+    "displayName": "ProductAttribute"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": [
+        "color",
+        "package",
+        "other"
+      ]
+    },
+    "products": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::product.product",
+      "mappedBy": "attributes"
+    },
+    "values": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::product-attribute-value.product-attribute-value",
+      "mappedBy": "attribute"
+    }
+  }
+}

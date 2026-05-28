@@ -1,18 +1,18 @@
 const PRODUCT_QUERY = {
   fields: ['id', 'documentId', 'name', 'slug', 'basePrice', 'active', 'weight', 'width', 'height', 'depth', 'publishedAt'],
   populate: {
-    product_options: {
+    attributes: {
       fields: ['id', 'name', 'type'],
       populate: {
-        option_values: {
+        values: {
           fields: ['id', 'documentId', 'label', 'value', 'publishedAt'],
         },
       },
     },
-    product_variants: {
+    variants: {
       fields: ['id', 'documentId', 'sku', 'stock', 'priceOverride', 'active', 'publishedAt'],
       populate: {
-        option_values: {
+        attribute_values: {
           fields: ['id', 'documentId', 'label', 'value', 'publishedAt'],
         },
       },
@@ -23,16 +23,16 @@ const PRODUCT_QUERY = {
 const VARIANT_QUERY = {
   fields: ['id', 'documentId', 'sku', 'stock', 'priceOverride', 'active', 'publishedAt'],
   populate: {
-    option_values: {
+    attribute_values: {
       fields: ['id', 'documentId', 'label', 'value', 'publishedAt'],
     },
     product: {
       fields: ['id', 'documentId', 'name', 'slug', 'basePrice', 'active', 'weight', 'width', 'height', 'depth', 'publishedAt'],
       populate: {
-        product_options: {
+        attributes: {
           fields: ['id', 'name', 'type'],
           populate: {
-            option_values: {
+            values: {
               fields: ['id', 'documentId', 'label', 'value', 'publishedAt'],
             },
           },
@@ -133,7 +133,7 @@ function findVariantOnProduct(product, variantIdentifier) {
   }
 
   return preferPublishedEntry(
-    (product.product_variants || []).filter((variant) => identifierMatchesEntity(variantIdentifier, variant))
+    (product.variants || []).filter((variant) => identifierMatchesEntity(variantIdentifier, variant))
   );
 }
 
@@ -145,8 +145,8 @@ async function findVariant(identifier) {
   return resolvePublishedDocument('api::product-variant.product-variant', identifier, VARIANT_QUERY);
 }
 
-async function findOptionValue(identifier) {
-  return resolvePublishedDocument('api::option-value.option-value', identifier, {
+async function findAttributeValue(identifier) {
+  return resolvePublishedDocument('api::product-attribute-value.product-attribute-value', identifier, {
     fields: ['id', 'documentId', 'label', 'value', 'publishedAt'],
   });
 }
@@ -193,58 +193,51 @@ function normalizeSelectedOptions(selectedOptions = []) {
     .filter(Boolean);
 }
 
-function resolveAllowedOptionValueMap(entity, type) {
+function resolveAllowedAttributeValueMap(entity, type) {
   if (type === 'variant') {
     return new Map(
-      (entity.option_values || []).map((optionValue) => [
-        String(optionValue.id),
+      (entity.attribute_values || []).map((attributeValue) => [
+        String(attributeValue.id),
         {
-          optionValueId: String(optionValue.id),
-          documentId: optionValue.documentId || '',
-          label: optionValue.label || '',
-          value: optionValue.value || '',
+          optionValueId: String(attributeValue.id),
+          documentId: attributeValue.documentId || '',
+          label: attributeValue.label || '',
+          value: attributeValue.value || '',
         },
       ])
     );
   }
 
-  const optionValues = (entity.product_options || []).flatMap((option) =>
-    (option.option_values || []).map((optionValue) => ({
-      optionValueId: String(optionValue.id),
-      documentId: optionValue.documentId || '',
-      label: optionValue.label || '',
-      value: optionValue.value || '',
-      optionId: String(option.id),
-      optionName: option.name || '',
-      optionType: option.type || '',
+  const attributeValues = (entity.attributes || []).flatMap((attribute) =>
+    (attribute.values || []).map((attributeValue) => ({
+      optionValueId: String(attributeValue.id),
+      documentId: attributeValue.documentId || '',
+      label: attributeValue.label || '',
+      value: attributeValue.value || '',
+      optionId: String(attribute.id),
+      optionName: attribute.name || '',
+      optionType: attribute.type || '',
     }))
   );
 
-  return new Map(optionValues.map((optionValue) => [optionValue.optionValueId, optionValue]));
+  return new Map(attributeValues.map((attributeValue) => [attributeValue.optionValueId, attributeValue]));
 }
 
-async function resolveSelectedOptionValue(optionValueId, allowedOptionValues, { allowGlobalFallback = false } = {}) {
-  const directMatch = allowedOptionValues.get(optionValueId);
+async function resolveSelectedOptionValue(optionValueId, allowedAttributeValues) {
+  const directMatch = allowedAttributeValues.get(optionValueId);
   if (directMatch) {
     return directMatch;
   }
 
   const selectedIdentifier = parseEntityIdentifier(optionValueId);
-  const selectedOptionValue = await findOptionValue(selectedIdentifier).catch(() => null);
-  if (!selectedOptionValue?.documentId) {
-    return allowGlobalFallback && selectedOptionValue
-      ? {
-          optionValueId: String(selectedOptionValue.id),
-          documentId: selectedOptionValue.documentId || '',
-          label: selectedOptionValue.label || '',
-          value: selectedOptionValue.value || '',
-        }
-      : null;
+  const selectedAttributeValue = await findAttributeValue(selectedIdentifier).catch(() => null);
+  if (!selectedAttributeValue?.documentId) {
+    return null;
   }
 
   const allowedMatch = (
-    Array.from(allowedOptionValues.values()).find(
-      (allowedOptionValue) => String(allowedOptionValue.documentId || '') === String(selectedOptionValue.documentId)
+    Array.from(allowedAttributeValues.values()).find(
+      (allowedAttributeValue) => String(allowedAttributeValue.documentId || '') === String(selectedAttributeValue.documentId)
     ) || null
   );
 
@@ -252,16 +245,7 @@ async function resolveSelectedOptionValue(optionValueId, allowedOptionValues, { 
     return allowedMatch;
   }
 
-  if (!allowGlobalFallback || !selectedOptionValue) {
-    return null;
-  }
-
-  return {
-    optionValueId: String(selectedOptionValue.id),
-    documentId: selectedOptionValue.documentId || '',
-    label: selectedOptionValue.label || '',
-    value: selectedOptionValue.value || '',
-  };
+  return null;
 }
 
 module.exports = {
@@ -295,7 +279,7 @@ module.exports = {
           entity = {
             ...productVariant,
             product: productEntity,
-            option_values: productVariant.option_values || [],
+            attribute_values: productVariant.attribute_values || [],
           };
           type = 'variant';
         }
@@ -369,13 +353,11 @@ module.exports = {
         throw err;
       }
 
-      const allowedOptionValues = resolveAllowedOptionValueMap(entity, type);
+      const allowedOptionValues = resolveAllowedAttributeValueMap(entity, type);
       const selectedOptionIds = normalizeSelectedOptions(it.selectedOptions);
       const selectedOptions = [];
       for (const optionValueId of selectedOptionIds) {
-        const optionValue = await resolveSelectedOptionValue(optionValueId, allowedOptionValues, {
-          allowGlobalFallback: type === 'variant',
-        });
+        const optionValue = await resolveSelectedOptionValue(optionValueId, allowedOptionValues);
         if (!optionValue) {
           const err = new Error(`Option ${optionValueId} is not allowed for this item`);
           err.status = 400;

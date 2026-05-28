@@ -33,17 +33,17 @@
         "audios"
       ]
     },
-    "option_values": {
+    "attribute_values": {
       "type": "relation",
       "relation": "manyToMany",
-      "target": "api::option-value.option-value",
-      "inversedBy": "product_variants"
+      "target": "api::product-attribute-value.product-attribute-value",
+      "inversedBy": "variants"
     },
     "product": {
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::product.product",
-      "inversedBy": "product_variants"
+      "inversedBy": "variants"
     }
   }
 }

@@ -62,12 +62,13 @@
       "target": "api::category.category",
       "inversedBy": "products"
     },
-    "product_options": {
+    "attributes": {
       "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::product-option.product-option"
+      "relation": "manyToMany",
+      "target": "api::product-attribute.product-attribute",
+      "inversedBy": "products"
     },
-    "product_variants": {
+    "variants": {
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::product-variant.product-variant",
