@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your Chick and Piggy Order</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:#f7f3ec; font-family:Arial, Helvetica, sans-serif; color:#2f241f;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f7f3ec; margin:0; padding:24px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px; background-color:#fffaf5; border:1px solid #eadfd2; border-radius:16px; overflow:hidden;">
+            <tr>
+              <td style="padding:32px; background-color:#f2dfcb;">
+                <p style="margin:0; font-size:12px; letter-spacing:1.4px; text-transform:uppercase; color:#7b5a43;">
+                  Chick and Piggy
+                </p>
+                <h1 style="margin:12px 0 0; font-size:30px; line-height:1.2; color:#2f241f;">
+                  Your order is confirmed
+                </h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 32px 8px;">
+                <p style="margin:0 0 14px; font-size:16px; line-height:1.7;">
+                  Hi {{CUSTOMER_NAME}},
+                </p>
+                <p style="margin:0 0 14px; font-size:16px; line-height:1.7;">
+                  Thank you for your purchase. We have received your payment and your order is now confirmed.
+                </p>
+                <p style="margin:0; font-size:16px; line-height:1.7;">
+                  Order <strong>#{{ORDER_ID}}</strong> was confirmed on {{ORDER_DATE}}.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 32px 12px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:14px 16px; background-color:#f9f1e7; border:1px solid #eadfd2; font-size:13px; font-weight:bold; width:180px;">
+                      Customer
+                    </td>
+                    <td style="padding:14px 16px; background-color:#ffffff; border:1px solid #eadfd2; font-size:15px;">
+                      {{CUSTOMER_NAME}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px 16px; background-color:#f9f1e7; border:1px solid #eadfd2; font-size:13px; font-weight:bold;">
+                      Email
+                    </td>
+                    <td style="padding:14px 16px; background-color:#ffffff; border:1px solid #eadfd2; font-size:15px;">
+                      {{CUSTOMER_EMAIL}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px 16px; background-color:#f9f1e7; border:1px solid #eadfd2; font-size:13px; font-weight:bold;">
+                      Phone
+                    </td>
+                    <td style="padding:14px 16px; background-color:#ffffff; border:1px solid #eadfd2; font-size:15px;">
+                      {{CUSTOMER_PHONE}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px 16px; background-color:#f9f1e7; border:1px solid #eadfd2; font-size:13px; font-weight:bold;">
+                      Payment status
+                    </td>
+                    <td style="padding:14px 16px; background-color:#ffffff; border:1px solid #eadfd2; font-size:15px;">
+                      {{PAYMENT_STATUS}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px 16px; background-color:#f9f1e7; border:1px solid #eadfd2; font-size:13px; font-weight:bold;">
+                      Shipping option
+                    </td>
+                    <td style="padding:14px 16px; background-color:#ffffff; border:1px solid #eadfd2; font-size:15px;">
+                      {{SHIPPING_OPTION}}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 32px 12px;">
+                <h2 style="margin:0 0 14px; font-size:20px; color:#2f241f;">Order summary</h2>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:12px 14px; border:1px solid #eadfd2; background-color:#ffffff; font-size:15px;">
+                      Items
+                    </td>
+                    <td style="padding:12px 14px; border:1px solid #eadfd2; background-color:#ffffff; font-size:15px;" align="right">
+                      {{ITEM_COUNT}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px 14px; border:1px solid #eadfd2; background-color:#ffffff; font-size:15px;">
+                      Subtotal
+                    </td>
+                    <td style="padding:12px 14px; border:1px solid #eadfd2; background-color:#ffffff; font-size:15px;" align="right">
+                      {{ORDER_SUBTOTAL}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px 14px; border:1px solid #eadfd2; background-color:#ffffff; font-size:15px;">
+                      Discount
+                    </td>
+                    <td style="padding:12px 14px; border:1px solid #eadfd2; background-color:#ffffff; font-size:15px;" align="right">
+                      {{ORDER_DISCOUNT}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px 14px; border:1px solid #eadfd2; background-color:#ffffff; font-size:15px;">
+                      Tax
+                    </td>
+                    <td style="padding:12px 14px; border:1px solid #eadfd2; background-color:#ffffff; font-size:15px;" align="right">
+                      {{ORDER_TAX}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px 14px; border:1px solid #eadfd2; background-color:#ffffff; font-size:15px;">
+                      Shipping
+                    </td>
+                    <td style="padding:12px 14px; border:1px solid #eadfd2; background-color:#ffffff; font-size:15px;" align="right">
+                      {{ORDER_SHIPPING}}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px; border:1px solid #d9c3af; background-color:#f2dfcb; font-size:16px; font-weight:bold;">
+                      Total
+                    </td>
+                    <td style="padding:14px; border:1px solid #d9c3af; background-color:#f2dfcb; font-size:16px; font-weight:bold;" align="right">
+                      {{ORDER_TOTAL}}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 32px 12px;">
+                <h2 style="margin:0 0 14px; font-size:20px; color:#2f241f;">Items</h2>
+                <div style="padding:16px; background-color:#ffffff; border:1px solid #eadfd2; border-radius:12px; font-size:15px; line-height:1.7;">
+                  {{ITEMS_SUMMARY}}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 32px 12px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td valign="top" style="width:50%; padding-right:8px;">
+                      <h2 style="margin:0 0 12px; font-size:20px; color:#2f241f;">Shipping address</h2>
+                      <div style="padding:16px; background-color:#ffffff; border:1px solid #eadfd2; border-radius:12px; font-size:15px; line-height:1.7;">
+                        {{SHIPPING_ADDRESS}}
+                      </div>
+                    </td>
+                    <td valign="top" style="width:50%; padding-left:8px;">
+                      <h2 style="margin:0 0 12px; font-size:20px; color:#2f241f;">Billing address</h2>
+                      <div style="padding:16px; background-color:#ffffff; border:1px solid #eadfd2; border-radius:12px; font-size:15px; line-height:1.7;">
+                        {{BILLING_ADDRESS}}
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 32px 32px;">
+                <p style="margin:0 0 10px; font-size:14px; line-height:1.7; color:#6f5a4e;">
+                  If you need help with your order, reply to this email or contact us at {{CONTACT_EMAIL}}.
+                </p>
+                <p style="margin:0; font-size:13px; line-height:1.7; color:#8b7568;">
+                  Order status: {{ORDER_STATUS}} | Currency: {{ORDER_CURRENCY}}
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
