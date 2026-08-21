@@ -14,6 +14,11 @@ Shipping optimization guardrails
 Env vars
 - `STRIPE_SECRET_KEY` (required): Stripe server secret key.
 - `STRIPE_WEBHOOK_SECRET` (required for webhook): Stripe webhook signing secret.
+- `RESEND_API_KEY` (optional): enables transactional email delivery through Resend.
+- `RESEND_FROM_EMAIL` (optional): sender used for Resend template emails.
+- `RESEND_REPLY_TO_EMAIL` (optional): reply-to header for Resend emails.
+- `RESEND_ORDER_TEMPLATE_ID` (optional): published Resend template id/alias for paid-order confirmation emails.
+- `RESEND_NEWSLETTER_TEMPLATE_ID` (optional): published Resend template id/alias for newsletter contact notifications.
 - `PUBLIC_API_ALLOWED_ORIGINS` (required in production): comma-separated storefront origins allowed to call public checkout APIs.
 - `CHECKOUT_SESSION_SECRET` (required in production): secret used to sign short-lived checkout session tokens.
 - `CHECKOUT_SESSION_TTL_MS` (optional): checkout session validity. Defaults to `900000` (15 minutes).
@@ -105,6 +110,7 @@ Notes
 - If `variantId` is provided, the variant price is used first and the product price is the fallback.
 - Shipping dimensions and weights are rebuilt from catalog data; client-supplied shipping dimensions are no longer accepted.
 - Orders are persisted in `api::order.order` and line items in `api::order-item.order-item`.
+- When Resend is configured, `payment_intent.succeeded` also attempts to send an order-confirmation template email to the customer and stores delivery metadata under `order.metadata.notifications.orderConfirmation`.
 - Shipping origins can now be managed in the `shipping-origin` collection type. Public `GET /api/shipping-origins/active` is disabled by default and must be explicitly enabled if needed.
 - The legacy `/api/stripe/checkout` compatibility proxy is disabled by default and must be explicitly enabled if still required by an older frontend.
 - Public discount lookup endpoints are disabled by default and must be explicitly enabled if still required.

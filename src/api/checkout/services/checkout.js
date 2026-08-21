@@ -3,6 +3,7 @@ const taxService = require('./taxService');
 const shippingService = require('./shippingService');
 const stripeService = require('./stripeService');
 const labelQueue = require('./shipping/labelQueue');
+const { sendOrderConfirmation } = require('../../../services/notification-service');
 const { recordSecurityMetric } = require('../utils/http');
 const { createCheckoutSessionToken, verifyCheckoutSessionToken } = require('../utils/session');
 
@@ -582,6 +583,27 @@ module.exports = {
             },
           },
         });
+
+        try {
+          const notificationResult = await sendOrderConfirmation(strapi, order.id);
+          if (notificationResult?.skipped && notificationResult.reason !== 'already_sent') {
+            strapi.log.warn(
+              `notification.orderConfirmation skipped ${JSON.stringify({
+                orderId: order.id,
+                reason: notificationResult.reason,
+              })}`
+            );
+          }
+        } catch (error) {
+          strapi.log.error(
+            `notification.orderConfirmation error ${JSON.stringify({
+              orderId: order.id,
+              paymentIntentId: paymentIntent.id,
+              message: error.message,
+              details: error.details || null,
+            })}`
+          );
+        }
       }
     }
 

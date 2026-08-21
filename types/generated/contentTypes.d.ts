@@ -710,6 +710,45 @@ export interface ApiFooterFooter extends Struct.SingleTypeSchema {
   };
 }
 
+export interface ApiFreeShippingZipFreeShippingZip
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'free_shipping_zips';
+  info: {
+    description: 'ZIP codes eligible for free shipping at checkout';
+    displayName: 'Free Shipping ZIP';
+    pluralName: 'free-shipping-zips';
+    singularName: 'free-shipping-zip';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    city: Schema.Attribute.String;
+    country: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'US'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::free-shipping-zip.free-shipping-zip'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    postalCode: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    publishedAt: Schema.Attribute.DateTime;
+    state: Schema.Attribute.String & Schema.Attribute.DefaultTo<'FL'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiGlobalGlobal extends Struct.SingleTypeSchema {
   collectionName: 'globals';
   info: {
@@ -1738,6 +1777,7 @@ declare module '@strapi/strapi' {
       'api::faq.faq': ApiFaqFaq;
       'api::featured-product.featured-product': ApiFeaturedProductFeaturedProduct;
       'api::footer.footer': ApiFooterFooter;
+      'api::free-shipping-zip.free-shipping-zip': ApiFreeShippingZipFreeShippingZip;
       'api::global.global': ApiGlobalGlobal;
       'api::header.header': ApiHeaderHeader;
       'api::landing.landing': ApiLandingLanding;
