@@ -3,6 +3,7 @@ const taxService = require('./taxService');
 const shippingService = require('./shippingService');
 const stripeService = require('./stripeService');
 const labelQueue = require('./shipping/labelQueue');
+const { buildFreeShippingRates } = require('./freeShipping');
 const { sendOrderConfirmation } = require('../../../services/notification-service');
 const { recordSecurityMetric } = require('../utils/http');
 const { createCheckoutSessionToken, verifyCheckoutSessionToken } = require('../utils/session');
@@ -291,6 +292,32 @@ function assertCheckoutSession(payload) {
   return verifyCheckoutSessionToken(payload.checkoutSessionToken, payload);
 }
 
+async function resolveShippingRates({ shipping, items }) {
+  const freeShippingZipService = strapi.service('api::free-shipping-zip.free-shipping-zip');
+  const isEligibleForFreeShipping = await freeShippingZipService.isEligible(shipping?.postalCode);
+
+  if (isEligibleForFreeShipping) {
+    return {
+      origin: null,
+      shippingRates: buildFreeShippingRates(shipping),
+      usedFreeShipping: true,
+    };
+  }
+
+  const origin = await shippingService.getOrigin();
+  const shippingRates = await shippingService.getRates({
+    origin,
+    destination: shipping,
+    items,
+  });
+
+  return {
+    origin,
+    shippingRates,
+    usedFreeShipping: false,
+  };
+}
+
 module.exports = {
   async discount(payload) {
     if (!payload?.discountCode) {
@@ -358,10 +385,12 @@ module.exports = {
     const tax = await taxService.calculateTax(taxableSubtotalCents, shipping);
 
     // Build shipments (don't assume front-end selection yet)
-    const origin = await shippingService.getOrigin();
-    const shippingRates = await shippingService.getRates({ origin, destination: shipping, items: cart.items }).catch((err) => {
+    const { origin, shippingRates } = await resolveShippingRates({
+      shipping,
+      items: cart.items,
+    }).catch((err) => {
       strapi.log.error('shipping.getRates failed', err);
-      return null; // allow quote to continue if carriers fail; handled below
+      return { origin: null, shippingRates: null };
     });
 
     if (!shippingRates?.shippingOptions || shippingRates.shippingOptions.length === 0) {
@@ -382,7 +411,7 @@ module.exports = {
       discount,
       totals,
       checkoutSessionToken,
-      originLabel: origin.label,
+      originLabel: origin?.label || null,
       shippingFingerprint: shippingRates.fingerprint,
       packageSnapshot: shippingRates.packageSnapshot,
       shippingOptions: shippingRates.shippingOptions,
@@ -406,8 +435,10 @@ module.exports = {
     const discount = await resolveCheckoutDiscount(payload, cart.subtotal);
     const taxableSubtotalCents = Math.max(0, cart.subtotal - (discount?.amountCents || 0));
     const tax = await taxService.calculateTax(taxableSubtotalCents, shipping);
-    const origin = await shippingService.getOrigin();
-    const shippingRates = await shippingService.getRates({ origin, destination: shipping, items: cart.items });
+    const { shippingRates } = await resolveShippingRates({
+      shipping,
+      items: cart.items,
+    });
     const shippingOptions = shippingRates.shippingOptions;
 
     const selected = shippingOptions.find((s) => s.id === shipping.selectedShippingOptionId);
