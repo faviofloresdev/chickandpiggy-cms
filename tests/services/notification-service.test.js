@@ -83,3 +83,19 @@ test('buildOrderTemplateVariables formats order totals and summaries', () => {
   assert.match(variables.ITEMS_SUMMARY, /Plush Toy x2/);
   assert.match(variables.ITEMS_SUMMARY, /Sticker Pack x1/);
 });
+
+test('buildOrderTemplateVariables keeps internal contact email available for purchase notifications', () => {
+  const variables = buildOrderTemplateVariables({
+    order: {
+      id: 77,
+      status: 'paid',
+      paymentStatus: 'succeeded',
+      customerEmail: 'buyer@example.com',
+      order_items: [],
+    },
+    contactEmail: 'store@example.com',
+  });
+
+  assert.equal(variables.CONTACT_EMAIL, 'store@example.com');
+  assert.equal(variables.CUSTOMER_EMAIL, 'buyer@example.com');
+});

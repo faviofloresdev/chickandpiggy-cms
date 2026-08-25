@@ -118,6 +118,11 @@ function buildOrderConfirmationIdempotencyKey(order) {
   return `order-confirmation-${order?.id || 'unknown'}-${paymentIntentId}`.slice(0, 256);
 }
 
+function buildInternalOrderNotificationIdempotencyKey(order) {
+  const paymentIntentId = String(order?.paymentIntentId || 'unknown').trim();
+  return `order-notification-${order?.id || 'unknown'}-${paymentIntentId}`.slice(0, 256);
+}
+
 function buildNewsletterIdempotencyKey(subscription) {
   const email = String(subscription?.email || 'unknown').trim();
   const subscribedAt = String(subscription?.subscribedAt || '').trim() || new Date().toISOString();
@@ -194,6 +199,7 @@ async function sendOrderConfirmation(strapi, orderId) {
     order,
     contactEmail,
   });
+  const normalizedContactEmail = normalizeEmail(contactEmail);
 
   try {
     const result = await sendTemplateEmail({
@@ -211,16 +217,40 @@ async function sendOrderConfirmation(strapi, orderId) {
       return result;
     }
 
+    let internalNotification = null;
+    if (normalizedContactEmail && normalizedContactEmail !== customerEmail) {
+      internalNotification = await sendTemplateEmail({
+        to: normalizedContactEmail,
+        templateId: process.env.RESEND_ORDER_TEMPLATE_ID || ORDER_TEMPLATE_ID,
+        idempotencyKey: buildInternalOrderNotificationIdempotencyKey(order),
+        variables: templateVariables,
+        tags: [
+          { name: 'flow', value: 'checkout_internal' },
+          { name: 'order_id', value: String(order.id) },
+        ],
+      });
+    }
+
     await updateOrderNotificationMetadata(strapi, order, {
       sentAt: new Date().toISOString(),
       resendEmailId: result.id || null,
       templateId: result.templateId,
       to: customerEmail,
+      internalNotification: internalNotification?.skipped
+        ? null
+        : {
+            sentAt: new Date().toISOString(),
+            resendEmailId: internalNotification?.id || null,
+            to: internalNotification?.to || [normalizedContactEmail].filter(Boolean),
+          },
       failedAt: null,
       failureMessage: null,
     });
 
-    return result;
+    return {
+      ...result,
+      internalNotification,
+    };
   } catch (error) {
     await updateOrderNotificationMetadata(strapi, order, {
       failedAt: new Date().toISOString(),
