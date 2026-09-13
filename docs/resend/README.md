@@ -8,6 +8,10 @@ Suggested template name:
 
 - `newsletter-contact-notification`
 
+Suggested subject:
+
+- `New newsletter subscriber: {{SUBSCRIBER_EMAIL}}`
+
 Variables:
 
 - `CONTACT_EMAIL`
@@ -25,6 +29,10 @@ Target recipient:
 Suggested template name:
 
 - `order-confirmation`
+
+Suggested subject:
+
+- `Your Chick & Piggy order is confirmed`
 
 Variables:
 
