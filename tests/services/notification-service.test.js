@@ -15,12 +15,14 @@ test('buildNewsletterSubscriptionVariables maps newsletter payload to template v
       notes: 'Interested in launches',
     },
     contactEmail: 'contact@example.com',
+    unsubscribeUrl: 'https://cms.example.com/api/newsletter-subscriptions/unsubscribe?token=signed',
   });
 
   assert.equal(variables.CONTACT_EMAIL, 'contact@example.com');
   assert.equal(variables.SUBSCRIBER_EMAIL, 'person@example.com');
   assert.equal(variables.SOURCE, 'home');
   assert.equal(variables.NOTES, 'Interested in launches');
+  assert.match(variables.UNSUBSCRIBE_URL, /token=signed$/);
   assert.ok(variables.SUBSCRIBED_AT.length > 0);
 });
 

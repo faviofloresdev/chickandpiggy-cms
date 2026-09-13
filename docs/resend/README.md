@@ -8,6 +8,10 @@ Suggested template name:
 
 - `newsletter-contact-notification`
 
+Suggested subject:
+
+- `New newsletter subscriber: {{SUBSCRIBER_EMAIL}}`
+
 Variables:
 
 - `CONTACT_EMAIL`
@@ -15,16 +19,22 @@ Variables:
 - `SUBSCRIBED_AT`
 - `SOURCE`
 - `NOTES`
+- `UNSUBSCRIBE_URL`
 
 Target recipient:
 
 - The `contactEmail` field from the Strapi `Contact` single type.
+- The unsubscribe button is an internal management action and requires confirmation.
 
 ## Order Confirmation
 
 Suggested template name:
 
 - `order-confirmation`
+
+Suggested subject:
+
+- `Your Chick & Piggy order is confirmed`
 
 Variables:
 
@@ -51,3 +61,36 @@ Variables:
 Target recipient:
 
 - The customer email from the paid order.
+
+## Shipping Confirmation
+
+Suggested template name:
+
+- `shipping-confirmation`
+
+Suggested subject:
+
+- `Your Chick & Piggy order {{ORDER_NUMBER}} is on the way`
+
+Variables:
+
+- `CONTACT_EMAIL`
+- `ORDER_ID`
+- `ORDER_NUMBER`
+- `CUSTOMER_NAME`
+- `CUSTOMER_EMAIL`
+- `CARRIER`
+- `TRACKING_NUMBER`
+- `TRACKING_URL`
+- `SHIPPED_AT`
+- `SHIPPING_OPTION`
+- `SHIPPING_ADDRESS`
+- `ORDER_TOTAL`
+- `ORDER_CURRENCY`
+
+Target recipient:
+
+- The customer email from the shipped order.
+
+After publishing the template in Resend, set its id or alias as
+`RESEND_SHIPPING_TEMPLATE_ID` in the backend environment.

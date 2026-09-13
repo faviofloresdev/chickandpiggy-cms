@@ -1,6 +1,9 @@
 'use strict';
 
 const { sendTemplateEmail, normalizeEmail } = require('./resend-email');
+const {
+  buildUnsubscribeUrl,
+} = require('../api/newsletter-subscription/utils/unsubscribe-token');
 
 const NEWSLETTER_TEMPLATE_ID = '99999999999999';
 const ORDER_TEMPLATE_ID = '888888888888';
@@ -64,13 +67,14 @@ function summarizeItems(items = []) {
     .join(', ');
 }
 
-function buildNewsletterSubscriptionVariables({ subscription, contactEmail }) {
+function buildNewsletterSubscriptionVariables({ subscription, contactEmail, unsubscribeUrl }) {
   return {
     CONTACT_EMAIL: String(contactEmail || '').trim(),
     SUBSCRIBER_EMAIL: String(subscription?.email || '').trim(),
     SUBSCRIBED_AT: formatDateTime(subscription?.subscribedAt),
     SOURCE: String(subscription?.source || 'home').trim(),
     NOTES: String(subscription?.notes || '').trim(),
+    UNSUBSCRIBE_URL: String(unsubscribeUrl || '').trim(),
   };
 }
 
@@ -105,6 +109,41 @@ function buildOrderTemplateVariables({ order, contactEmail }) {
   };
 }
 
+function buildTrackingUrl(carrier, trackingNumber) {
+  const normalizedCarrier = String(carrier || '').trim().toLowerCase();
+  const normalizedTrackingNumber = String(trackingNumber || '').trim();
+  if (!normalizedTrackingNumber) return '';
+  const encoded = encodeURIComponent(normalizedTrackingNumber);
+  if (normalizedCarrier.includes('ups')) return `https://www.ups.com/track?loc=en_US&tracknum=${encoded}`;
+  if (normalizedCarrier.includes('usps')) return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encoded}`;
+  if (normalizedCarrier.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${encoded}`;
+  return '';
+}
+
+function buildShippingTemplateVariables({ order, contactEmail }) {
+  const shippingOptionLabel =
+    order?.shippingOption?.label ||
+    order?.shippingOption?.name ||
+    order?.shippingOptionId ||
+    '';
+
+  return {
+    CONTACT_EMAIL: String(contactEmail || '').trim(),
+    ORDER_ID: String(order?.id || '').trim(),
+    ORDER_NUMBER: String(order?.orderNumber || order?.id || '').trim(),
+    CUSTOMER_NAME: String(order?.customerName || '').trim(),
+    CUSTOMER_EMAIL: String(order?.customerEmail || '').trim(),
+    CARRIER: String(order?.carrier || '').trim(),
+    TRACKING_NUMBER: String(order?.trackingNumber || '').trim(),
+    TRACKING_URL: buildTrackingUrl(order?.carrier, order?.trackingNumber),
+    SHIPPED_AT: formatDateTime(order?.shippedAt || order?.updatedAt),
+    SHIPPING_OPTION: String(shippingOptionLabel).trim(),
+    SHIPPING_ADDRESS: formatAddress(order?.shippingAddress),
+    ORDER_TOTAL: formatCurrency(order?.totalAmount, order?.currency),
+    ORDER_CURRENCY: String(order?.currency || 'usd').toUpperCase(),
+  };
+}
+
 async function getContactEmail(strapi) {
   const contact = await strapi.db.query('api::contact.contact').findOne({
     select: ['contactEmail'],
@@ -129,17 +168,22 @@ function buildNewsletterIdempotencyKey(subscription) {
   return `newsletter-subscription-${email}-${subscribedAt}`.slice(0, 256);
 }
 
-async function updateOrderNotificationMetadata(strapi, order, updates) {
+function buildShippingConfirmationIdempotencyKey(order) {
+  const trackingNumber = String(order?.trackingNumber || 'unknown').trim();
+  return `shipping-confirmation-${order?.id || 'unknown'}-${trackingNumber}`.slice(0, 256);
+}
+
+async function updateOrderNotificationMetadata(strapi, order, notificationKey, updates) {
   const currentMetadata = order?.metadata || {};
   const currentNotifications = currentMetadata.notifications || {};
-  const currentOrderConfirmation = currentNotifications.orderConfirmation || {};
+  const currentNotification = currentNotifications[notificationKey] || {};
 
   const metadata = {
     ...currentMetadata,
     notifications: {
       ...currentNotifications,
-      orderConfirmation: {
-        ...currentOrderConfirmation,
+      [notificationKey]: {
+        ...currentNotification,
         ...updates,
       },
     },
@@ -165,6 +209,7 @@ async function notifyNewsletterSubscription(strapi, subscription) {
     variables: buildNewsletterSubscriptionVariables({
       subscription,
       contactEmail,
+      unsubscribeUrl: buildUnsubscribeUrl(subscription),
     }),
     tags: [
       { name: 'flow', value: 'newsletter' },
@@ -231,7 +276,7 @@ async function sendOrderConfirmation(strapi, orderId) {
       });
     }
 
-    await updateOrderNotificationMetadata(strapi, order, {
+    await updateOrderNotificationMetadata(strapi, order, 'orderConfirmation', {
       sentAt: new Date().toISOString(),
       resendEmailId: result.id || null,
       templateId: result.templateId,
@@ -252,7 +297,7 @@ async function sendOrderConfirmation(strapi, orderId) {
       internalNotification,
     };
   } catch (error) {
-    await updateOrderNotificationMetadata(strapi, order, {
+    await updateOrderNotificationMetadata(strapi, order, 'orderConfirmation', {
       failedAt: new Date().toISOString(),
       failureMessage: error.message,
       templateId: process.env.RESEND_ORDER_TEMPLATE_ID || ORDER_TEMPLATE_ID,
@@ -265,9 +310,68 @@ async function sendOrderConfirmation(strapi, orderId) {
   }
 }
 
+async function sendShippingConfirmation(strapi, orderId) {
+  const order = await strapi.entityService.findOne('api::order.order', orderId);
+  if (!order?.id) return { skipped: true, reason: 'order_not_found' };
+
+  const alreadySentAt = order?.metadata?.notifications?.shippingConfirmation?.sentAt;
+  if (alreadySentAt) return { skipped: true, reason: 'already_sent' };
+
+  const customerEmail = normalizeEmail(order.customerEmail);
+  if (!customerEmail) return { skipped: true, reason: 'missing_customer_email' };
+  if (!order.carrier || !order.trackingNumber) {
+    return { skipped: true, reason: 'missing_shipping_details' };
+  }
+
+  const templateId = String(process.env.RESEND_SHIPPING_TEMPLATE_ID || '').trim();
+  if (!templateId) return { skipped: true, reason: 'missing_shipping_template_id' };
+
+  const contactEmail = await getContactEmail(strapi);
+  try {
+    const result = await sendTemplateEmail({
+      to: customerEmail,
+      templateId,
+      idempotencyKey: buildShippingConfirmationIdempotencyKey(order),
+      variables: buildShippingTemplateVariables({ order, contactEmail }),
+      tags: [
+        { name: 'flow', value: 'shipping_confirmation' },
+        { name: 'order_id', value: String(order.id) },
+      ],
+    });
+
+    if (result.skipped) return result;
+    await updateOrderNotificationMetadata(strapi, order, 'shippingConfirmation', {
+      sentAt: new Date().toISOString(),
+      resendEmailId: result.id || null,
+      templateId: result.templateId,
+      to: customerEmail,
+      carrier: order.carrier,
+      trackingNumber: order.trackingNumber,
+      failedAt: null,
+      failureMessage: null,
+    });
+    return result;
+  } catch (error) {
+    await updateOrderNotificationMetadata(strapi, order, 'shippingConfirmation', {
+      failedAt: new Date().toISOString(),
+      failureMessage: error.message,
+      templateId,
+      to: customerEmail,
+      carrier: order.carrier,
+      trackingNumber: order.trackingNumber,
+    }).catch((metadataError) => {
+      strapi.log.error('notification.shippingConfirmation metadata update failed', metadataError);
+    });
+    throw error;
+  }
+}
+
 module.exports = {
+  buildTrackingUrl,
+  buildShippingTemplateVariables,
   buildNewsletterSubscriptionVariables,
   buildOrderTemplateVariables,
   notifyNewsletterSubscription,
   sendOrderConfirmation,
+  sendShippingConfirmation,
 };

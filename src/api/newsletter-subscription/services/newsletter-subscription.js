@@ -2,6 +2,7 @@
 
 const { createCoreService } = require('@strapi/strapi').factories;
 const { notifyNewsletterSubscription } = require('../../../services/notification-service');
+const { verifyUnsubscribeToken } = require('../utils/unsubscribe-token');
 
 const UID = 'api::newsletter-subscription.newsletter-subscription';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -165,6 +166,7 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
           status: 'subscribed',
           source: normalized.source,
           subscribedAt: normalized.subscribedAt,
+          unsubscribedAt: null,
           ...(normalized.notes ? { notes: normalized.notes } : {}),
         },
       });
@@ -207,6 +209,7 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
               status: 'subscribed',
               source: normalized.source,
               subscribedAt: normalized.subscribedAt,
+              unsubscribedAt: null,
               ...(normalized.notes ? { notes: normalized.notes } : {}),
             },
           });
@@ -262,5 +265,34 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
         notification: buildNotificationSummary(notificationResult, 'failed'),
       },
     };
+  },
+
+  async getUnsubscribeTarget(token) {
+    const payload = verifyUnsubscribeToken(token);
+    const existing = await findByEmail(strapi, payload.email);
+    if (!existing?.id || String(existing.subscribedAt || '') !== payload.subscribedAt) {
+      const err = new Error('Invalid or expired unsubscribe link');
+      err.status = 400;
+      err.code = 'INVALID_UNSUBSCRIBE_TOKEN';
+      throw err;
+    }
+    return existing;
+  },
+
+  async unsubscribe(token) {
+    const existing = await this.getUnsubscribeTarget(token);
+    if (existing.status === 'unsubscribed') {
+      return { changed: false, email: existing.email, status: 'unsubscribed' };
+    }
+
+    await strapi.entityService.update(UID, existing.id, {
+      data: {
+        status: 'unsubscribed',
+        unsubscribedAt: new Date().toISOString(),
+      },
+    });
+
+    strapi.log.info('newsletter-subscription unsubscribed', { email: existing.email });
+    return { changed: true, email: existing.email, status: 'unsubscribed' };
   },
 }));
