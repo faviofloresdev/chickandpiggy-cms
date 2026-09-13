@@ -1,6 +1,10 @@
 'use strict';
 
-const { sendTemplateEmail, normalizeEmail } = require('./resend-email');
+const { sendHtmlEmail, sendTemplateEmail, normalizeEmail } = require('./resend-email');
+const {
+  renderShippingConfirmationHtml,
+  renderShippingConfirmationText,
+} = require('./templates/shipping-confirmation');
 
 const NEWSLETTER_TEMPLATE_ID = '99999999999999';
 const ORDER_TEMPLATE_ID = '888888888888';
@@ -319,26 +323,31 @@ async function sendShippingConfirmation(strapi, orderId) {
   }
 
   const templateId = String(process.env.RESEND_SHIPPING_TEMPLATE_ID || '').trim();
-  if (!templateId) return { skipped: true, reason: 'missing_shipping_template_id' };
-
   const contactEmail = await getContactEmail(strapi);
+  const variables = buildShippingTemplateVariables({ order, contactEmail });
   try {
-    const result = await sendTemplateEmail({
+    const emailOptions = {
       to: customerEmail,
-      templateId,
       idempotencyKey: buildShippingConfirmationIdempotencyKey(order),
-      variables: buildShippingTemplateVariables({ order, contactEmail }),
+      subject: `Your Chick & Piggy order ${order.orderNumber || order.id} is on the way`,
       tags: [
         { name: 'flow', value: 'shipping_confirmation' },
         { name: 'order_id', value: String(order.id) },
       ],
-    });
+    };
+    const result = templateId
+      ? await sendTemplateEmail({ ...emailOptions, templateId, variables })
+      : await sendHtmlEmail({
+          ...emailOptions,
+          html: renderShippingConfirmationHtml(variables),
+          text: renderShippingConfirmationText(variables),
+        });
 
     if (result.skipped) return result;
     await updateOrderNotificationMetadata(strapi, order, 'shippingConfirmation', {
       sentAt: new Date().toISOString(),
       resendEmailId: result.id || null,
-      templateId: result.templateId,
+      templateId: result.templateId || 'inline:shipping-confirmation-v1',
       to: customerEmail,
       carrier: order.carrier,
       trackingNumber: order.trackingNumber,
@@ -350,7 +359,7 @@ async function sendShippingConfirmation(strapi, orderId) {
     await updateOrderNotificationMetadata(strapi, order, 'shippingConfirmation', {
       failedAt: new Date().toISOString(),
       failureMessage: error.message,
-      templateId,
+      templateId: templateId || 'inline:shipping-confirmation-v1',
       to: customerEmail,
       carrier: order.carrier,
       trackingNumber: order.trackingNumber,
