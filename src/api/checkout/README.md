@@ -20,6 +20,8 @@ Env vars
 - `RESEND_ORDER_TEMPLATE_ID` (optional): published Resend template id/alias for paid-order confirmation emails.
 - `RESEND_SHIPPING_TEMPLATE_ID` (required for shipping notifications): published Resend template id/alias created from `docs/resend/shipping-confirmation.html`.
 - `RESEND_NEWSLETTER_TEMPLATE_ID` (optional): published Resend template id/alias for newsletter contact notifications.
+- `NEWSLETTER_UNSUBSCRIBE_BASE_URL` (required for newsletter notifications): public HTTPS origin of Strapi, without `/api`.
+- `NEWSLETTER_UNSUBSCRIBE_SECRET` (required for newsletter notifications): random secret of at least 32 characters used to sign unsubscribe links.
 - `PUBLIC_API_ALLOWED_ORIGINS` (required in production): comma-separated storefront origins allowed to call public checkout APIs.
 - `CHECKOUT_SESSION_SECRET` (required in production): secret used to sign short-lived checkout session tokens.
 - `CHECKOUT_SESSION_TTL_MS` (optional): checkout session validity. Defaults to `900000` (15 minutes).

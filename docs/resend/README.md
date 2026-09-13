@@ -19,10 +19,12 @@ Variables:
 - `SUBSCRIBED_AT`
 - `SOURCE`
 - `NOTES`
+- `UNSUBSCRIBE_URL`
 
 Target recipient:
 
 - The `contactEmail` field from the Strapi `Contact` single type.
+- The unsubscribe button is an internal management action and requires confirmation.
 
 ## Order Confirmation
 

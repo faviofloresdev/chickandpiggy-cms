@@ -71,7 +71,14 @@
 
             <tr>
               <td style="padding:20px 30px 32px;">
-                <p style="margin:0; font-size:12px; line-height:1.6; color:#76717b;">This notice was sent to <a href="mailto:{{CONTACT_EMAIL}}" style="color:#535d70; text-decoration:underline;">{{CONTACT_EMAIL}}</a>.</p>
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px;">
+                  <tr>
+                    <td bgcolor="#2d2a32" style="background:#2d2a32;">
+                      <a href="{{UNSUBSCRIBE_URL}}" target="_blank" style="display:inline-block; padding:12px 18px; border:1px solid #2d2a32; color:#ffffff; font-size:13px; line-height:1.2; font-weight:bold; text-decoration:none;">Unsubscribe this address</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0; font-size:12px; line-height:1.6; color:#76717b;">This notice was sent to <a href="mailto:{{CONTACT_EMAIL}}" style="color:#535d70; text-decoration:underline;">{{CONTACT_EMAIL}}</a>. The unsubscribe action opens a confirmation page before changing the subscriber’s status.</p>
               </td>
             </tr>
 

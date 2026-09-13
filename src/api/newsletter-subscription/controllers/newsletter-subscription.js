@@ -47,6 +47,51 @@ function checkRateLimit(ctx) {
   return null;
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function maskEmail(email) {
+  const [localPart, domain] = String(email || '').split('@');
+  if (!localPart || !domain) return '';
+  const visible = localPart.slice(0, Math.min(2, localPart.length));
+  return `${visible}${'•'.repeat(Math.max(3, localPart.length - visible.length))}@${domain}`;
+}
+
+function renderPage({ title, message, token, confirm = false }) {
+  const form = confirm
+    ? `<form method="post" action="/api/newsletter-subscriptions/unsubscribe" style="margin:28px 0 0">
+        <input type="hidden" name="token" value="${escapeHtml(token)}" />
+        <button type="submit" style="display:inline-block;padding:14px 22px;border:0;background:#9277cc;color:#fff;font:700 14px Arial,sans-serif;cursor:pointer">Unsubscribe</button>
+      </form>`
+    : '';
+
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head>
+<body style="margin:0;background:#fdfaf8;color:#2d2a32;font-family:Arial,Helvetica,sans-serif">
+  <main style="max-width:560px;margin:48px auto;padding:0 20px">
+    <section style="background:#fff;border:1px solid #eee7e2;padding:36px">
+      <p style="margin:0 0 30px;font:22px Georgia,serif">Chick &amp; Piggy</p>
+      <h1 style="margin:0 0 16px;font:normal 34px/1.2 Georgia,serif">${escapeHtml(title)}</h1>
+      <p style="margin:0;color:#56515b;font-size:16px;line-height:1.7">${escapeHtml(message)}</p>
+      ${form}
+    </section>
+  </main>
+</body></html>`;
+}
+
+function sendHtml(ctx, status, html) {
+  ctx.set('Cache-Control', 'no-store');
+  ctx.status = status;
+  ctx.type = 'html';
+  ctx.body = html;
+}
+
 module.exports = {
   async subscribe(ctx) {
     try {
@@ -83,6 +128,57 @@ module.exports = {
         error: err.message || 'Unable to subscribe to newsletter',
       };
       strapi.log.error('newsletter-subscription.subscribe error', err);
+    }
+  },
+
+  async confirmUnsubscribe(ctx) {
+    const token = String(ctx.query?.token || '').trim();
+    try {
+      const subscription = await strapi
+        .service('api::newsletter-subscription.newsletter-subscription')
+        .getUnsubscribeTarget(token);
+      sendHtml(ctx, 200, renderPage({
+        title: 'Unsubscribe from emails?',
+        message: `${maskEmail(subscription.email)} will stop receiving Chick & Piggy marketing emails.`,
+        token,
+        confirm: true,
+      }));
+    } catch (err) {
+      sendHtml(ctx, err.status || 400, renderPage({
+        title: 'This link is no longer valid',
+        message: 'The unsubscribe link may be outdated. Contact us if you still need help.',
+      }));
+    }
+  },
+
+  async unsubscribe(ctx) {
+    const token = String(ctx.request.body?.token || '').trim();
+    try {
+      const result = await strapi
+        .service('api::newsletter-subscription.newsletter-subscription')
+        .unsubscribe(token);
+
+      if (String(ctx.get('content-type')).includes('application/json')) {
+        ctx.status = 200;
+        ctx.body = { ok: true, status: result.status, changed: result.changed };
+        return;
+      }
+
+      sendHtml(ctx, 200, renderPage({
+        title: 'You’re unsubscribed',
+        message: `${maskEmail(result.email)} will no longer receive Chick & Piggy marketing emails.`,
+      }));
+    } catch (err) {
+      if (String(ctx.get('content-type')).includes('application/json')) {
+        ctx.status = err.status || 400;
+        ctx.body = { ok: false, error: err.message || 'Unable to unsubscribe' };
+        return;
+      }
+
+      sendHtml(ctx, err.status || 400, renderPage({
+        title: 'We couldn’t update your preference',
+        message: 'The unsubscribe link may be outdated. Contact us if you still need help.',
+      }));
     }
   },
 };

@@ -1,6 +1,9 @@
 'use strict';
 
 const { sendTemplateEmail, normalizeEmail } = require('./resend-email');
+const {
+  buildUnsubscribeUrl,
+} = require('../api/newsletter-subscription/utils/unsubscribe-token');
 
 const NEWSLETTER_TEMPLATE_ID = '99999999999999';
 const ORDER_TEMPLATE_ID = '888888888888';
@@ -64,13 +67,14 @@ function summarizeItems(items = []) {
     .join(', ');
 }
 
-function buildNewsletterSubscriptionVariables({ subscription, contactEmail }) {
+function buildNewsletterSubscriptionVariables({ subscription, contactEmail, unsubscribeUrl }) {
   return {
     CONTACT_EMAIL: String(contactEmail || '').trim(),
     SUBSCRIBER_EMAIL: String(subscription?.email || '').trim(),
     SUBSCRIBED_AT: formatDateTime(subscription?.subscribedAt),
     SOURCE: String(subscription?.source || 'home').trim(),
     NOTES: String(subscription?.notes || '').trim(),
+    UNSUBSCRIBE_URL: String(unsubscribeUrl || '').trim(),
   };
 }
 
@@ -205,6 +209,7 @@ async function notifyNewsletterSubscription(strapi, subscription) {
     variables: buildNewsletterSubscriptionVariables({
       subscription,
       contactEmail,
+      unsubscribeUrl: buildUnsubscribeUrl(subscription),
     }),
     tags: [
       { name: 'flow', value: 'newsletter' },

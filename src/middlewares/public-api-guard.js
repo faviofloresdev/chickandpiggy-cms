@@ -124,6 +124,14 @@ module.exports = (config, { strapi }) => {
   const allowPublicShippingOrigin = parseBoolean(process.env.PUBLIC_SHIPPING_ORIGIN_ENABLED, false);
   const rules = [
     {
+      name: 'newsletter_unsubscribe',
+      path: /^\/api\/newsletter-subscriptions\/unsubscribe$/,
+      methods: ['GET', 'POST'],
+      windowMs: 60 * 1000,
+      max: 30,
+      logContext: 'newsletter_unsubscribe',
+    },
+    {
       name: 'admin_orders',
       path: /^\/api\/admin\/orders(?:\/[^/]+)?$/,
       methods: ['GET', 'PATCH'],
