@@ -1,6 +1,7 @@
 'use strict';
 
 const stripeService = require('../../checkout/services/stripeService');
+const { sendShippingConfirmation } = require('../../../services/notification-service');
 const {
   TRANSITIONS,
   createError,
@@ -148,6 +149,26 @@ module.exports = {
         newValue: JSON.stringify({ carrier: updated.carrier, trackingNumber: updated.trackingNumber }),
         actorName: actor.name, actorEmail: actor.email || null, actorRole: actor.role, note: payload.note || null,
       });
+    }
+    if (updates.fulfillmentStatus === 'shipped') {
+      try {
+        const notificationResult = await sendShippingConfirmation(strapi, order.id);
+        if (notificationResult?.skipped && notificationResult.reason !== 'already_sent') {
+          strapi.log.warn(
+            `notification.shippingConfirmation skipped ${JSON.stringify({
+              orderId: order.id,
+              reason: notificationResult.reason,
+            })}`
+          );
+        }
+      } catch (error) {
+        strapi.log.error(
+          `notification.shippingConfirmation error ${JSON.stringify({
+            orderId: order.id,
+            message: error.message,
+          })}`
+        );
+      }
     }
     return this.detail(order.id);
   },

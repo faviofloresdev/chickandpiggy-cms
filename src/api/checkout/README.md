@@ -18,6 +18,7 @@ Env vars
 - `RESEND_FROM_EMAIL` (optional): sender used for Resend template emails.
 - `RESEND_REPLY_TO_EMAIL` (optional): reply-to header for Resend emails.
 - `RESEND_ORDER_TEMPLATE_ID` (optional): published Resend template id/alias for paid-order confirmation emails.
+- `RESEND_SHIPPING_TEMPLATE_ID` (required for shipping notifications): published Resend template id/alias sent when an order becomes shipped.
 - `RESEND_NEWSLETTER_TEMPLATE_ID` (optional): published Resend template id/alias for newsletter contact notifications.
 - `PUBLIC_API_ALLOWED_ORIGINS` (required in production): comma-separated storefront origins allowed to call public checkout APIs.
 - `CHECKOUT_SESSION_SECRET` (required in production): secret used to sign short-lived checkout session tokens.
