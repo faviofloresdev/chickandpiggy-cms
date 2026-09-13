@@ -1,6 +1,8 @@
 'use strict';
 
 const { createCoreService } = require('@strapi/strapi').factories;
+const { notifyNewsletterSubscription } = require('../../../services/notification-service');
+const { verifyUnsubscribeToken } = require('../utils/unsubscribe-token');
 
 const UID = 'api::newsletter-subscription.newsletter-subscription';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -53,6 +55,71 @@ async function findByEmail(strapi, email) {
   return Array.isArray(entries) ? entries[0] : entries;
 }
 
+function formatErrorForLog(error) {
+  if (!error) {
+    return null;
+  }
+
+  return {
+    message: error.message || 'Unknown error',
+    status: error.status || null,
+    details: error.details || null,
+  };
+}
+
+function logNotificationResult(strapi, subscription, result) {
+  if (result?.skipped) {
+    strapi.log.warn('newsletter-subscription notification skipped', {
+      email: subscription.email,
+      reason: result.reason || 'unknown',
+    });
+    return;
+  }
+
+  strapi.log.info('newsletter-subscription notification sent', {
+    email: subscription.email,
+    resendEmailId: result?.id || null,
+    templateId: result?.templateId || null,
+    to: result?.to || [],
+  });
+}
+
+async function sendNewsletterNotification(strapi, subscription) {
+  try {
+    const result = await notifyNewsletterSubscription(strapi, subscription);
+    logNotificationResult(strapi, subscription, result);
+    return result;
+  } catch (error) {
+    strapi.log.error(
+      'newsletter-subscription notification error',
+      formatErrorForLog(error)
+    );
+    throw error;
+  }
+}
+
+function buildNotificationSummary(result, fallback = 'not_attempted') {
+  if (!result) {
+    return {
+      state: fallback,
+    };
+  }
+
+  if (result.skipped) {
+    return {
+      state: 'skipped',
+      reason: result.reason || 'unknown',
+    };
+  }
+
+  return {
+    state: 'sent',
+    templateId: result.templateId || null,
+    resendEmailId: result.id || null,
+    to: result.to || [],
+  };
+}
+
 module.exports = createCoreService(UID, ({ strapi }) => ({
   normalizePayload(payload = {}) {
     const email = normalizeEmail(payload.email);
@@ -78,12 +145,17 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
     const existing = await findByEmail(strapi, normalized.email);
     if (existing?.id) {
       if (existing.status === 'subscribed') {
+        strapi.log.info('newsletter-subscription already subscribed', {
+          email: normalized.email,
+        });
         return {
           created: false,
           statusCode: 200,
           body: {
             ok: true,
             status: 'subscribed',
+            created: false,
+            notification: buildNotificationSummary(null, 'already_subscribed'),
           },
         };
       }
@@ -94,9 +166,17 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
           status: 'subscribed',
           source: normalized.source,
           subscribedAt: normalized.subscribedAt,
+          unsubscribedAt: null,
           ...(normalized.notes ? { notes: normalized.notes } : {}),
         },
       });
+
+      let notificationResult = null;
+      try {
+        notificationResult = await sendNewsletterNotification(strapi, normalized);
+      } catch (error) {
+        // The subscription should still succeed even if the notification fails.
+      }
 
       return {
         created: false,
@@ -104,6 +184,8 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
         body: {
           ok: true,
           status: 'subscribed',
+          created: false,
+          notification: buildNotificationSummary(notificationResult, 'failed'),
         },
       };
     }
@@ -127,9 +209,28 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
               status: 'subscribed',
               source: normalized.source,
               subscribedAt: normalized.subscribedAt,
+              unsubscribedAt: null,
               ...(normalized.notes ? { notes: normalized.notes } : {}),
             },
           });
+
+          let notificationResult = null;
+          try {
+            notificationResult = await sendNewsletterNotification(strapi, normalized);
+          } catch (error) {
+            // The subscription should still succeed even if the notification fails.
+          }
+
+          return {
+            created: false,
+            statusCode: 200,
+            body: {
+              ok: true,
+              status: 'subscribed',
+              created: false,
+              notification: buildNotificationSummary(notificationResult, 'failed'),
+            },
+          };
         }
 
         return {
@@ -138,11 +239,20 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
           body: {
             ok: true,
             status: racedExisting.status === 'unsubscribed' ? 'subscribed' : racedExisting.status,
+            created: false,
+            notification: buildNotificationSummary(null, 'not_attempted'),
           },
         };
       }
 
       throw err;
+    }
+
+    let notificationResult = null;
+    try {
+      notificationResult = await sendNewsletterNotification(strapi, normalized);
+    } catch (error) {
+      // The subscription should still succeed even if the notification fails.
     }
 
     return {
@@ -151,7 +261,38 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
       body: {
         ok: true,
         status: 'subscribed',
+        created: true,
+        notification: buildNotificationSummary(notificationResult, 'failed'),
       },
     };
+  },
+
+  async getUnsubscribeTarget(token) {
+    const payload = verifyUnsubscribeToken(token);
+    const existing = await findByEmail(strapi, payload.email);
+    if (!existing?.id || String(existing.subscribedAt || '') !== payload.subscribedAt) {
+      const err = new Error('Invalid or expired unsubscribe link');
+      err.status = 400;
+      err.code = 'INVALID_UNSUBSCRIBE_TOKEN';
+      throw err;
+    }
+    return existing;
+  },
+
+  async unsubscribe(token) {
+    const existing = await this.getUnsubscribeTarget(token);
+    if (existing.status === 'unsubscribed') {
+      return { changed: false, email: existing.email, status: 'unsubscribed' };
+    }
+
+    await strapi.entityService.update(UID, existing.id, {
+      data: {
+        status: 'unsubscribed',
+        unsubscribedAt: new Date().toISOString(),
+      },
+    });
+
+    strapi.log.info('newsletter-subscription unsubscribed', { email: existing.email });
+    return { changed: true, email: existing.email, status: 'unsubscribed' };
   },
 }));

@@ -32,6 +32,9 @@
     "subscribedAt": {
       "type": "datetime"
     },
+    "unsubscribedAt": {
+      "type": "datetime"
+    },
     "notes": {
       "type": "text"
     }
