@@ -51,3 +51,36 @@ Variables:
 Target recipient:
 
 - The customer email from the paid order.
+
+## Shipping Confirmation
+
+Suggested template name:
+
+- `shipping-confirmation`
+
+Suggested subject:
+
+- `Your Chick & Piggy order {{ORDER_NUMBER}} is on the way`
+
+Variables:
+
+- `CONTACT_EMAIL`
+- `ORDER_ID`
+- `ORDER_NUMBER`
+- `CUSTOMER_NAME`
+- `CUSTOMER_EMAIL`
+- `CARRIER`
+- `TRACKING_NUMBER`
+- `TRACKING_URL`
+- `SHIPPED_AT`
+- `SHIPPING_OPTION`
+- `SHIPPING_ADDRESS`
+- `ORDER_TOTAL`
+- `ORDER_CURRENCY`
+
+Target recipient:
+
+- The customer email from the shipped order.
+
+After publishing the template in Resend, set its id or alias as
+`RESEND_SHIPPING_TEMPLATE_ID` in the backend environment.

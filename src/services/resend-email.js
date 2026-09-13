@@ -30,18 +30,15 @@ function buildHeaders({ apiKey, idempotencyKey }) {
   return headers;
 }
 
-function buildPayload({ from, to, templateId, variables, html, text, subject, replyTo, tags }) {
+function buildPayload({ from, to, templateId, variables, subject, replyTo, tags }) {
   const payload = {
     from,
     to,
+    template: {
+      id: templateId,
+      variables,
+    },
   };
-
-  if (templateId) {
-    payload.template = { id: templateId, variables };
-  } else {
-    payload.html = html;
-    if (text) payload.text = text;
-  }
 
   if (subject) {
     payload.subject = subject;
@@ -143,56 +140,8 @@ async function sendTemplateEmail({
   };
 }
 
-async function sendHtmlEmail({
-  to,
-  html,
-  text,
-  from,
-  subject,
-  replyTo,
-  idempotencyKey,
-  tags = [],
-}) {
-  const recipients = normalizeRecipients(to);
-  const config = getConfig();
-  const sender = String(from || config.from || '').trim();
-  const resolvedReplyTo = String(replyTo || config.replyTo || '').trim();
-
-  if (!config.apiKey) return { skipped: true, reason: 'missing_resend_api_key' };
-  if (!sender) return { skipped: true, reason: 'missing_resend_from_email' };
-  if (recipients.length === 0) return { skipped: true, reason: 'missing_recipient' };
-  if (!html) return { skipped: true, reason: 'missing_html' };
-
-  const response = await fetch(RESEND_API_URL, {
-    method: 'POST',
-    headers: buildHeaders({ apiKey: config.apiKey, idempotencyKey }),
-    body: JSON.stringify(
-      buildPayload({
-        from: sender,
-        to: recipients,
-        html,
-        text,
-        subject,
-        replyTo: resolvedReplyTo,
-        tags,
-      })
-    ),
-  });
-
-  const body = await parseResponse(response);
-  if (!response.ok) {
-    const err = new Error(`Resend request failed with status ${response.status}`);
-    err.status = response.status;
-    err.details = body;
-    throw err;
-  }
-
-  return { skipped: false, id: body?.id || null, body, to: recipients, templateId: null };
-}
-
 module.exports = {
   normalizeEmail,
   normalizeRecipients,
-  sendHtmlEmail,
   sendTemplateEmail,
 };
