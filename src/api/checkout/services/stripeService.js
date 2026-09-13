@@ -9,6 +9,16 @@ const REUSABLE_PAYMENT_INTENT_STATUSES = new Set([
 ]);
 
 module.exports = {
+  async retrievePaymentIntent(paymentIntentId) {
+    if (!stripe) {
+      throw new Error('Stripe secret key not configured');
+    }
+
+    return stripe.paymentIntents.retrieve(paymentIntentId, {
+      expand: ['latest_charge'],
+    });
+  },
+
   async createOrUpdatePaymentIntent({ amount, currency = 'usd', metadata = {}, paymentIntentId }) {
     if (!stripe) {
       throw new Error('Stripe secret key not configured');

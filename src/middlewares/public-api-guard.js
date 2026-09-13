@@ -124,6 +124,17 @@ module.exports = (config, { strapi }) => {
   const allowPublicShippingOrigin = parseBoolean(process.env.PUBLIC_SHIPPING_ORIGIN_ENABLED, false);
   const rules = [
     {
+      name: 'admin_orders',
+      path: /^\/api\/admin\/orders(?:\/[^/]+)?$/,
+      methods: ['GET', 'PATCH'],
+      windowMs: 60 * 1000,
+      max: 120,
+      requireInternalToken: true,
+      internalTokenEnv: 'ADMIN_INTERNAL_API_KEY',
+      internalTokenHeader: 'x-admin-api-key',
+      logContext: 'admin_orders',
+    },
+    {
       name: 'discount_lookup',
       path: /^\/api\/(checkout\/discount\/|discount\/|discounts\/code\/)/,
       methods: ['GET'],
@@ -224,7 +235,18 @@ module.exports = (config, { strapi }) => {
       }
 
       if (rule.requireInternalToken) {
-        assertInternalToken(ctx, (key) => process.env[key]);
+        if (rule.internalTokenEnv) {
+          const expected = process.env[rule.internalTokenEnv];
+          const provided = ctx.get(rule.internalTokenHeader);
+          if (!expected || !provided || provided !== expected) {
+            const err = new Error('Invalid internal API key');
+            err.status = expected ? 403 : 503;
+            err.code = expected ? 'INTERNAL_KEY_INVALID' : 'INTERNAL_KEY_MISSING';
+            throw err;
+          }
+        } else {
+          assertInternalToken(ctx, (key) => process.env[key]);
+        }
       }
 
       consumeRateLimit(ctx, rule);

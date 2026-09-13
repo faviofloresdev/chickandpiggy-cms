@@ -7,6 +7,7 @@ const { buildFreeShippingRates } = require('./freeShipping');
 const { sendOrderConfirmation } = require('../../../services/notification-service');
 const { recordSecurityMetric } = require('../utils/http');
 const { createCheckoutSessionToken, verifyCheckoutSessionToken } = require('../utils/session');
+const { orderNumber, recordChange } = require('../../order/utils/admin-order');
 
 function createError(message, status = 400) {
   const err = new Error(message);
@@ -98,6 +99,7 @@ function buildOrderData({ payload, cart, customerRecord, discount, selectedShipp
     paymentIntentId: paymentIntent?.id || null,
     clientSecret: paymentIntent?.client_secret || null,
     paymentStatus: paymentIntent?.status || 'requires_payment_method',
+    paymentState: paymentIntent?.status === 'succeeded' ? 'paid' : 'pending',
     status: 'pending',
     currency: totals.currency,
     discountCode: discount?.code || null,
@@ -142,7 +144,12 @@ async function recreateOrderItems(orderId, items) {
         quantity: item.quantity,
         unitPrice: item.unitPrice / 100,
         subtotal: item.lineTotal / 100,
-        product: item.productSnapshot,
+        product: {
+          ...item.productSnapshot,
+          title: item.title,
+          sku: item.sku,
+          selectedOptions: item.selectedOptions,
+        },
       },
     });
   }
@@ -230,6 +237,11 @@ async function upsertOrder({ payload, cart, customerRecord, discount, selectedSh
   }
 
   await recreateOrderItems(order.id, cart.items);
+  if (!order.orderNumber) {
+    order = await strapi.entityService.update('api::order.order', order.id, {
+      data: { orderNumber: orderNumber(order) },
+    });
+  }
   return order;
 }
 
@@ -607,13 +619,21 @@ module.exports = {
           data: {
             status: 'paid',
             paymentStatus: paymentIntent.status,
-            paidAt: new Date(paymentIntent.created * 1000).toISOString(),
+            paymentState: 'paid',
+            paidAt: new Date(event.created * 1000).toISOString(),
             metadata: {
               ...(order.metadata || {}),
               stripeChargeId: paymentIntent.latest_charge || null,
             },
           },
         });
+
+        if (order.paymentState !== 'paid') {
+          await recordChange(order.id, {
+            changeType: 'payment', previousValue: order.paymentState || 'pending', newValue: 'paid',
+            actorName: 'Stripe', actorRole: 'stripe', note: event.type,
+          });
+        }
 
         try {
           const notificationResult = await sendOrderConfirmation(strapi, order.id);
@@ -650,12 +670,39 @@ module.exports = {
           data: {
             status: 'failed',
             paymentStatus: paymentIntent.status,
+            paymentState: 'failed',
             metadata: {
               ...(order.metadata || {}),
               paymentFailureMessage: paymentIntent.last_payment_error?.message || null,
             },
           },
         });
+        if (order.paymentState !== 'failed') {
+          await recordChange(order.id, {
+            changeType: 'payment', previousValue: order.paymentState || 'pending', newValue: 'failed',
+            actorName: 'Stripe', actorRole: 'stripe', note: event.type,
+          });
+        }
+      }
+    }
+
+    if (event.type === 'payment_intent.canceled' || event.type === 'charge.refunded') {
+      const stripeObject = event.data.object;
+      const paymentIntentId = event.type === 'charge.refunded' ? stripeObject.payment_intent : stripeObject.id;
+      const [order] = await strapi.entityService.findMany('api::order.order', {
+        filters: { paymentIntentId }, limit: 1,
+      });
+      if (order) {
+        const nextState = event.type === 'charge.refunded' ? 'refunded' : 'failed';
+        await strapi.entityService.update('api::order.order', order.id, {
+          data: { paymentState: nextState, paymentStatus: stripeObject.status || event.type },
+        });
+        if (order.paymentState !== nextState) {
+          await recordChange(order.id, {
+            changeType: 'payment', previousValue: order.paymentState || 'pending', newValue: nextState,
+            actorName: 'Stripe', actorRole: 'stripe', note: event.type,
+          });
+        }
       }
     }
 

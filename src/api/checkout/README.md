@@ -23,6 +23,7 @@ Env vars
 - `CHECKOUT_SESSION_SECRET` (required in production): secret used to sign short-lived checkout session tokens.
 - `CHECKOUT_SESSION_TTL_MS` (optional): checkout session validity. Defaults to `900000` (15 minutes).
 - `CHECKOUT_INTERNAL_API_KEY` (required for `POST /api/checkout/labels`): shared secret for internal label creation calls.
+- `ADMIN_INTERNAL_API_KEY` (required for the private order-management BFF): shared only by Strapi and the Next.js server.
 - `PUBLIC_DISCOUNT_LOOKUP_ENABLED` (optional): enables public `GET` discount lookup endpoints. Defaults to `false`.
 - `PUBLIC_LEGACY_STRIPE_ENABLED` (optional): enables the legacy `POST /api/stripe/checkout` compatibility proxy. Defaults to `false`.
 - `PUBLIC_SHIPPING_ORIGIN_ENABLED` (optional): enables public `GET /api/shipping-origins/active`. Defaults to `false`.
