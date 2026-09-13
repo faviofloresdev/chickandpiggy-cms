@@ -72,17 +72,17 @@ function verifyUnsubscribeToken(token, secret) {
 
 function buildUnsubscribeUrl(subscription, options = {}) {
   const baseUrl = String(
-    options.baseUrl || process.env.NEWSLETTER_UNSUBSCRIBE_BASE_URL || ''
+    options.baseUrl || process.env.STRAPI_URL || ''
   ).trim();
   if (!baseUrl) {
-    throw configurationError('NEWSLETTER_UNSUBSCRIBE_BASE_URL is required');
+    throw configurationError('STRAPI_URL is required');
   }
 
   let url;
   try {
     url = new URL('/api/newsletter-subscriptions/unsubscribe', baseUrl);
   } catch (error) {
-    throw configurationError('NEWSLETTER_UNSUBSCRIBE_BASE_URL must be a valid absolute URL');
+    throw configurationError('STRAPI_URL must be a valid absolute URL');
   }
   url.searchParams.set('token', createUnsubscribeToken(subscription, options.secret));
   return url.toString();

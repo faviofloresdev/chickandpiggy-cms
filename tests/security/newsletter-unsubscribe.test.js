@@ -39,6 +39,22 @@ test('unsubscribe URL contains only a signed token', () => {
   assert.equal(url.searchParams.has('email'), false);
 });
 
+test('unsubscribe URL reuses STRAPI_URL from the CMS environment', () => {
+  const previousUrl = process.env.STRAPI_URL;
+  const previousSecret = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET;
+  process.env.STRAPI_URL = 'https://cms.example.com';
+  process.env.NEWSLETTER_UNSUBSCRIBE_SECRET = SECRET;
+  try {
+    const url = new URL(buildUnsubscribeUrl(SUBSCRIPTION));
+    assert.equal(url.origin, 'https://cms.example.com');
+  } finally {
+    if (previousUrl === undefined) delete process.env.STRAPI_URL;
+    else process.env.STRAPI_URL = previousUrl;
+    if (previousSecret === undefined) delete process.env.NEWSLETTER_UNSUBSCRIBE_SECRET;
+    else process.env.NEWSLETTER_UNSUBSCRIBE_SECRET = previousSecret;
+  }
+});
+
 test('confirmation GET does not unsubscribe until the form is submitted', async () => {
   let unsubscribeCalls = 0;
   const service = {
