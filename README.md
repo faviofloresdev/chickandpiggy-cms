@@ -66,6 +66,38 @@ npm run develop
 
 The local Strapi admin usually runs at `http://localhost:1337/admin`.
 
+## Apply approved copy to an existing SQLite database
+
+`scripts/apply-approved-copy.cjs` applies an external, private content manifest without
+replacing the database. It only allows copy and SEO fields on Landing, FeaturedProduct,
+Footer, Product, and Faq. Images, prices, variants, customers, orders, publication state,
+and relationships are not editable through this tool. No content payload is committed.
+
+Confirm that the target uses SQLite before using this tool. PostgreSQL and MySQL are
+not supported. Run from the installed CMS project directory. Preview is read-only:
+
+```bash
+node scripts/apply-approved-copy.cjs --database /path/to/data.db --manifest /private/content-update.json
+```
+
+The manifest uses `format: 1`, `databaseEngine: "sqlite"`, and an `entries` array.
+Each entry identifies `table`, `documentId`, `status` (`draft` or `published`), and
+`locale` (including `null`). Product entries may also include `slug` for validation.
+Each key in `fields` contains the expected `before` and approved `after` text values.
+Descriptions use Strapi's JSON-encoded blocks as strings. Both versions must be listed
+explicitly if both draft and published content should change.
+
+After reviewing the preview, stop the target Strapi process and run the same command
+with `--apply`. The tool creates a private database backup next to the target database,
+rechecks all expected values inside a transaction, updates only the listed fields and
+their `updated_at` timestamps, and verifies the saved values. An unexpected value or
+missing target aborts the update. Already-applied values are skipped on repeat runs.
+Restart Strapi afterward and check the affected pages. Keep the manifest and backup
+outside Git. To recover from a failed rollout, stop Strapi and restore the complete
+backup using the normal database recovery procedure before restarting.
+
+Run `npm run test:content` for preview, preservation, conflict, and repeat-run tests.
+
 ## Available scripts
 
 - `npm run develop`: start Strapi in development mode
