@@ -12,6 +12,10 @@
   },
   "pluginOptions": {},
   "attributes": {
+    "orderNumber": {
+      "type": "string",
+      "unique": true
+    },
     "paymentIntentId": {
       "type": "string"
     },
@@ -20,6 +24,16 @@
     },
     "paymentStatus": {
       "type": "string"
+    },
+    "paymentState": {
+      "type": "enumeration",
+      "enum": ["pending", "paid", "failed", "refunded"],
+      "default": "pending"
+    },
+    "fulfillmentStatus": {
+      "type": "enumeration",
+      "enum": ["pending_preparation", "preparing", "shipped", "delivered", "cancelled"],
+      "default": "pending_preparation"
     },
     "status": {
       "type": "enumeration",
@@ -110,6 +124,24 @@
     },
     "paidAt": {
       "type": "datetime"
+    },
+    "carrier": {
+      "type": "string"
+    },
+    "trackingNumber": {
+      "type": "string"
+    },
+    "shippedAt": {
+      "type": "datetime"
+    },
+    "deliveredAt": {
+      "type": "datetime"
+    },
+    "changeHistory": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::order-change.order-change",
+      "mappedBy": "order"
     },
     "order_items": {
       "type": "relation",

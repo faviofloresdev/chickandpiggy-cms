@@ -57,7 +57,7 @@ module.exports = ({ env }) => {
         },
         credentials: false,
         headers: ['Content-Type', 'Authorization', 'Stripe-Signature', 'X-Internal-Api-Key'],
-        methods: ['GET', 'POST', 'OPTIONS'],
+        methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
         keepHeadersOnError: true,
       },
     },

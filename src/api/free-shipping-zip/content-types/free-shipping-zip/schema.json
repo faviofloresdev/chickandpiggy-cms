@@ -1,0 +1,41 @@
+{
+  "kind": "collectionType",
+  "collectionName": "free_shipping_zips",
+  "info": {
+    "singularName": "free-shipping-zip",
+    "pluralName": "free-shipping-zips",
+    "displayName": "Free Shipping ZIP",
+    "description": "ZIP codes eligible for free shipping at checkout"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "postalCode": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "default": "FL"
+    },
+    "country": {
+      "type": "string",
+      "required": true,
+      "default": "US"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "kind": "collectionType",
+  "collectionName": "order_changes",
+  "info": {
+    "singularName": "order-change",
+    "pluralName": "order-changes",
+    "displayName": "Order change",
+    "description": "Immutable audit history for administrative order changes"
+  },
+  "options": { "draftAndPublish": false },
+  "pluginOptions": {},
+  "attributes": {
+    "order": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::order.order",
+      "inversedBy": "changeHistory",
+      "required": true
+    },
+    "changeType": {
+      "type": "enumeration",
+      "enum": ["fulfillment", "shipping", "payment"],
+      "required": true
+    },
+    "previousValue": { "type": "string" },
+    "newValue": { "type": "string" },
+    "actorName": { "type": "string", "required": true },
+    "actorEmail": { "type": "email" },
+    "actorRole": { "type": "enumeration", "enum": ["admin", "operator", "stripe"] },
+    "note": { "type": "text" },
+    "changedAt": { "type": "datetime", "required": true }
+  }
+}

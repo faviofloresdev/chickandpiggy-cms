@@ -3,8 +3,11 @@ const taxService = require('./taxService');
 const shippingService = require('./shippingService');
 const stripeService = require('./stripeService');
 const labelQueue = require('./shipping/labelQueue');
+const { buildFreeShippingRates } = require('./freeShipping');
+const { sendOrderConfirmation } = require('../../../services/notification-service');
 const { recordSecurityMetric } = require('../utils/http');
 const { createCheckoutSessionToken, verifyCheckoutSessionToken } = require('../utils/session');
+const { orderNumber, recordChange } = require('../../order/utils/admin-order');
 
 function createError(message, status = 400) {
   const err = new Error(message);
@@ -96,6 +99,7 @@ function buildOrderData({ payload, cart, customerRecord, discount, selectedShipp
     paymentIntentId: paymentIntent?.id || null,
     clientSecret: paymentIntent?.client_secret || null,
     paymentStatus: paymentIntent?.status || 'requires_payment_method',
+    paymentState: paymentIntent?.status === 'succeeded' ? 'paid' : 'pending',
     status: 'pending',
     currency: totals.currency,
     discountCode: discount?.code || null,
@@ -140,7 +144,12 @@ async function recreateOrderItems(orderId, items) {
         quantity: item.quantity,
         unitPrice: item.unitPrice / 100,
         subtotal: item.lineTotal / 100,
-        product: item.productSnapshot,
+        product: {
+          ...item.productSnapshot,
+          title: item.title,
+          sku: item.sku,
+          selectedOptions: item.selectedOptions,
+        },
       },
     });
   }
@@ -228,6 +237,11 @@ async function upsertOrder({ payload, cart, customerRecord, discount, selectedSh
   }
 
   await recreateOrderItems(order.id, cart.items);
+  if (!order.orderNumber) {
+    order = await strapi.entityService.update('api::order.order', order.id, {
+      data: { orderNumber: orderNumber(order) },
+    });
+  }
   return order;
 }
 
@@ -288,6 +302,32 @@ function assertCheckoutSession(payload) {
   }
 
   return verifyCheckoutSessionToken(payload.checkoutSessionToken, payload);
+}
+
+async function resolveShippingRates({ shipping, items }) {
+  const freeShippingZipService = strapi.service('api::free-shipping-zip.free-shipping-zip');
+  const isEligibleForFreeShipping = await freeShippingZipService.isEligible(shipping?.postalCode);
+
+  if (isEligibleForFreeShipping) {
+    return {
+      origin: null,
+      shippingRates: buildFreeShippingRates(shipping),
+      usedFreeShipping: true,
+    };
+  }
+
+  const origin = await shippingService.getOrigin();
+  const shippingRates = await shippingService.getRates({
+    origin,
+    destination: shipping,
+    items,
+  });
+
+  return {
+    origin,
+    shippingRates,
+    usedFreeShipping: false,
+  };
 }
 
 module.exports = {
@@ -357,10 +397,12 @@ module.exports = {
     const tax = await taxService.calculateTax(taxableSubtotalCents, shipping);
 
     // Build shipments (don't assume front-end selection yet)
-    const origin = await shippingService.getOrigin();
-    const shippingRates = await shippingService.getRates({ origin, destination: shipping, items: cart.items }).catch((err) => {
+    const { origin, shippingRates } = await resolveShippingRates({
+      shipping,
+      items: cart.items,
+    }).catch((err) => {
       strapi.log.error('shipping.getRates failed', err);
-      return null; // allow quote to continue if carriers fail; handled below
+      return { origin: null, shippingRates: null };
     });
 
     if (!shippingRates?.shippingOptions || shippingRates.shippingOptions.length === 0) {
@@ -381,7 +423,7 @@ module.exports = {
       discount,
       totals,
       checkoutSessionToken,
-      originLabel: origin.label,
+      originLabel: origin?.label || null,
       shippingFingerprint: shippingRates.fingerprint,
       packageSnapshot: shippingRates.packageSnapshot,
       shippingOptions: shippingRates.shippingOptions,
@@ -405,8 +447,10 @@ module.exports = {
     const discount = await resolveCheckoutDiscount(payload, cart.subtotal);
     const taxableSubtotalCents = Math.max(0, cart.subtotal - (discount?.amountCents || 0));
     const tax = await taxService.calculateTax(taxableSubtotalCents, shipping);
-    const origin = await shippingService.getOrigin();
-    const shippingRates = await shippingService.getRates({ origin, destination: shipping, items: cart.items });
+    const { shippingRates } = await resolveShippingRates({
+      shipping,
+      items: cart.items,
+    });
     const shippingOptions = shippingRates.shippingOptions;
 
     const selected = shippingOptions.find((s) => s.id === shipping.selectedShippingOptionId);
@@ -575,13 +619,42 @@ module.exports = {
           data: {
             status: 'paid',
             paymentStatus: paymentIntent.status,
-            paidAt: new Date(paymentIntent.created * 1000).toISOString(),
+            paymentState: 'paid',
+            paidAt: new Date(event.created * 1000).toISOString(),
             metadata: {
               ...(order.metadata || {}),
               stripeChargeId: paymentIntent.latest_charge || null,
             },
           },
         });
+
+        if (order.paymentState !== 'paid') {
+          await recordChange(order.id, {
+            changeType: 'payment', previousValue: order.paymentState || 'pending', newValue: 'paid',
+            actorName: 'Stripe', actorRole: 'stripe', note: event.type,
+          });
+        }
+
+        try {
+          const notificationResult = await sendOrderConfirmation(strapi, order.id);
+          if (notificationResult?.skipped && notificationResult.reason !== 'already_sent') {
+            strapi.log.warn(
+              `notification.orderConfirmation skipped ${JSON.stringify({
+                orderId: order.id,
+                reason: notificationResult.reason,
+              })}`
+            );
+          }
+        } catch (error) {
+          strapi.log.error(
+            `notification.orderConfirmation error ${JSON.stringify({
+              orderId: order.id,
+              paymentIntentId: paymentIntent.id,
+              message: error.message,
+              details: error.details || null,
+            })}`
+          );
+        }
       }
     }
 
@@ -597,12 +670,39 @@ module.exports = {
           data: {
             status: 'failed',
             paymentStatus: paymentIntent.status,
+            paymentState: 'failed',
             metadata: {
               ...(order.metadata || {}),
               paymentFailureMessage: paymentIntent.last_payment_error?.message || null,
             },
           },
         });
+        if (order.paymentState !== 'failed') {
+          await recordChange(order.id, {
+            changeType: 'payment', previousValue: order.paymentState || 'pending', newValue: 'failed',
+            actorName: 'Stripe', actorRole: 'stripe', note: event.type,
+          });
+        }
+      }
+    }
+
+    if (event.type === 'payment_intent.canceled' || event.type === 'charge.refunded') {
+      const stripeObject = event.data.object;
+      const paymentIntentId = event.type === 'charge.refunded' ? stripeObject.payment_intent : stripeObject.id;
+      const [order] = await strapi.entityService.findMany('api::order.order', {
+        filters: { paymentIntentId }, limit: 1,
+      });
+      if (order) {
+        const nextState = event.type === 'charge.refunded' ? 'refunded' : 'failed';
+        await strapi.entityService.update('api::order.order', order.id, {
+          data: { paymentState: nextState, paymentStatus: stripeObject.status || event.type },
+        });
+        if (order.paymentState !== nextState) {
+          await recordChange(order.id, {
+            changeType: 'payment', previousValue: order.paymentState || 'pending', newValue: nextState,
+            actorName: 'Stripe', actorRole: 'stripe', note: event.type,
+          });
+        }
       }
     }
 

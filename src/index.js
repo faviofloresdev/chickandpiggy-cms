@@ -1,5 +1,31 @@
 'use strict';
 
+const { orderNumber } = require('./api/order/utils/admin-order');
+const { ensurePublicCatalogPermissions } = require('./utils/public-catalog-permissions');
+
+async function backfillAdministrativeOrderFields(strapi) {
+  let migrated = 0;
+  while (true) {
+    const orders = await strapi.entityService.findMany('api::order.order', {
+      filters: { orderNumber: { $null: true } },
+      sort: ['id:asc'],
+      limit: 100,
+    });
+    if (!orders.length) break;
+    for (const order of orders) {
+      await strapi.entityService.update('api::order.order', order.id, {
+        data: {
+          orderNumber: orderNumber(order),
+          fulfillmentStatus: order.fulfillmentStatus || 'pending_preparation',
+          paymentState: order.paymentState || (order.status === 'paid' ? 'paid' : order.status === 'failed' ? 'failed' : 'pending'),
+        },
+      });
+      migrated += 1;
+    }
+  }
+  if (migrated) strapi.log.info(`Backfilled administrative fields for ${migrated} orders`);
+}
+
 module.exports = {
   /**
    * An asynchronous register function that runs before
@@ -16,5 +42,17 @@ module.exports = {
    * This gives you an opportunity to set up your data model,
    * run jobs, or perform some special logic.
    */
-  bootstrap(/*{ strapi }*/) {},
+  async bootstrap({ strapi }) {
+    try {
+      await ensurePublicCatalogPermissions(strapi);
+    } catch (error) {
+      strapi.log.error('Could not configure public catalog permissions', error);
+    }
+
+    try {
+      await backfillAdministrativeOrderFields(strapi);
+    } catch (error) {
+      strapi.log.error('Could not backfill administrative order fields', error);
+    }
+  },
 };

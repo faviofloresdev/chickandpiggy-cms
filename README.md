@@ -11,6 +11,8 @@ This project manages:
 - Checkout quotes and shipping rate selection
 - Stripe PaymentIntent creation and webhook processing
 - Discount validation and order persistence
+- Newsletter subscription capture and contact notifications
+- Transactional email delivery through Resend templates
 
 ## Stack
 
@@ -18,6 +20,7 @@ This project manages:
 - Node.js 20+
 - SQLite for local development
 - Stripe for payments
+- Resend for transactional emails
 - FedEx, UPS, and USPS integrations for shipping rates
 
 ## Requirements
@@ -49,6 +52,8 @@ cp .env.example .env
 - `JWT_SECRET`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
 - `PUBLIC_API_ALLOWED_ORIGINS`
 - `CHECKOUT_SESSION_SECRET`
 - `CHECKOUT_INTERNAL_API_KEY`
@@ -89,6 +94,17 @@ Legacy compatibility endpoints:
 
 Additional implementation notes live in [src/api/checkout/README.md](src/api/checkout/README.md).
 
+## Email flows
+
+The backend currently sends two transactional email flows through Resend templates:
+
+- Home newsletter subscription: when a subscription is saved, the backend notifies the `contactEmail` configured in the `Contact` single type.
+- Paid order confirmation: when Stripe confirms `payment_intent.succeeded`, the backend sends a confirmation email to the customer who placed the order.
+
+The checkout flow is unchanged: order confirmation is sent only after the payment webhook succeeds, not when the PaymentIntent is created.
+
+If Resend is not configured or the email send fails, the CMS and checkout flows keep working and the error is only logged.
+
 ## Frontend integration note
 
 When the frontend applies or updates a discount, it must keep reusing the same checkout session by sending back:
@@ -109,12 +125,65 @@ Use [`.env.example`](.env.example) as the base template. The project includes co
 - Strapi server secrets
 - SQLite local database
 - Stripe checkout and webhook handling
+- Resend transactional email delivery
 - Shipping origin and shipping cache tuning
 - FedEx, UPS, and USPS credentials
 - Cloudflare R2 media storage
 - Optional Redis-backed cache
 - Explicit public API origins and internal checkout route protection
 - Signed checkout sessions and endpoint exposure flags
+
+### Resend variables
+
+Minimum variables:
+
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
+
+Optional variables:
+
+- `RESEND_REPLY_TO_EMAIL`
+- `RESEND_NEWSLETTER_TEMPLATE_ID`
+- `RESEND_ORDER_TEMPLATE_ID`
+
+Current fallback template ids in code:
+
+- Newsletter notification: `99999999999999`
+- Order confirmation: `888888888888`
+
+The default source of the newsletter destination email is the `contactEmail` field in the Strapi `Contact` single type, not an environment variable.
+
+### Resend template variables
+
+Newsletter template variables:
+
+- `CONTACT_EMAIL`
+- `SUBSCRIBER_EMAIL`
+- `SUBSCRIBED_AT`
+- `SOURCE`
+- `NOTES`
+
+Order confirmation template variables:
+
+- `CONTACT_EMAIL`
+- `ORDER_ID`
+- `ORDER_DATE`
+- `ORDER_STATUS`
+- `PAYMENT_STATUS`
+- `CUSTOMER_NAME`
+- `CUSTOMER_EMAIL`
+- `CUSTOMER_PHONE`
+- `ORDER_CURRENCY`
+- `ORDER_SUBTOTAL`
+- `ORDER_DISCOUNT`
+- `ORDER_TAX`
+- `ORDER_SHIPPING`
+- `ORDER_TOTAL`
+- `SHIPPING_OPTION`
+- `SHIPPING_ADDRESS`
+- `BILLING_ADDRESS`
+- `ITEM_COUNT`
+- `ITEMS_SUMMARY`
 
 Do not commit your real `.env` file.
 Rotate any existing Strapi or Stripe secrets that were previously stored in tracked environment files.

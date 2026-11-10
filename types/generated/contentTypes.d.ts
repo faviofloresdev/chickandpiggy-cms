@@ -710,6 +710,45 @@ export interface ApiFooterFooter extends Struct.SingleTypeSchema {
   };
 }
 
+export interface ApiFreeShippingZipFreeShippingZip
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'free_shipping_zips';
+  info: {
+    description: 'ZIP codes eligible for free shipping at checkout';
+    displayName: 'Free Shipping ZIP';
+    pluralName: 'free-shipping-zips';
+    singularName: 'free-shipping-zip';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    city: Schema.Attribute.String;
+    country: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'US'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::free-shipping-zip.free-shipping-zip'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    postalCode: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    publishedAt: Schema.Attribute.DateTime;
+    state: Schema.Attribute.String & Schema.Attribute.DefaultTo<'FL'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiGlobalGlobal extends Struct.SingleTypeSchema {
   collectionName: 'globals';
   info: {
@@ -859,6 +898,47 @@ export interface ApiNewsletterSubscriptionNewsletterSubscription
   };
 }
 
+export interface ApiOrderChangeOrderChange extends Struct.CollectionTypeSchema {
+  collectionName: 'order_changes';
+  info: {
+    description: 'Immutable audit history for administrative order changes';
+    displayName: 'Order change';
+    pluralName: 'order-changes';
+    singularName: 'order-change';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    actorEmail: Schema.Attribute.Email;
+    actorName: Schema.Attribute.String & Schema.Attribute.Required;
+    actorRole: Schema.Attribute.Enumeration<['admin', 'operator', 'stripe']>;
+    changedAt: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    changeType: Schema.Attribute.Enumeration<
+      ['fulfillment', 'shipping', 'payment']
+    > &
+      Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::order-change.order-change'
+    > &
+      Schema.Attribute.Private;
+    newValue: Schema.Attribute.String;
+    note: Schema.Attribute.Text;
+    order: Schema.Attribute.Relation<'manyToOne', 'api::order.order'> &
+      Schema.Attribute.Required;
+    previousValue: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiOrderItemOrderItem extends Struct.CollectionTypeSchema {
   collectionName: 'order_items';
   info: {
@@ -904,6 +984,11 @@ export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
   };
   attributes: {
     billingAddress: Schema.Attribute.JSON;
+    carrier: Schema.Attribute.String;
+    changeHistory: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::order-change.order-change'
+    >;
     clientSecret: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -913,10 +998,15 @@ export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
     customerEmail: Schema.Attribute.Email;
     customerName: Schema.Attribute.String;
     customerPhone: Schema.Attribute.String;
+    deliveredAt: Schema.Attribute.DateTime;
     discount: Schema.Attribute.Relation<'manyToOne', 'api::discount.discount'>;
     discountAmount: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
     discountCode: Schema.Attribute.String;
     discountSnapshot: Schema.Attribute.JSON;
+    fulfillmentStatus: Schema.Attribute.Enumeration<
+      ['pending_preparation', 'preparing', 'shipped', 'delivered', 'cancelled']
+    > &
+      Schema.Attribute.DefaultTo<'pending_preparation'>;
     items: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::order.order'> &
@@ -926,10 +1016,16 @@ export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
       'oneToMany',
       'api::order-item.order-item'
     >;
+    orderNumber: Schema.Attribute.String & Schema.Attribute.Unique;
     paidAt: Schema.Attribute.DateTime;
     paymentIntentId: Schema.Attribute.String;
+    paymentState: Schema.Attribute.Enumeration<
+      ['pending', 'paid', 'failed', 'refunded']
+    > &
+      Schema.Attribute.DefaultTo<'pending'>;
     paymentStatus: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
+    shippedAt: Schema.Attribute.DateTime;
     shippingAddress: Schema.Attribute.JSON;
     shippingAmount: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
     shippingOption: Schema.Attribute.JSON;
@@ -943,6 +1039,7 @@ export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
     taxAmount: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
     totalAmount: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
     totals: Schema.Attribute.JSON;
+    trackingNumber: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1738,10 +1835,12 @@ declare module '@strapi/strapi' {
       'api::faq.faq': ApiFaqFaq;
       'api::featured-product.featured-product': ApiFeaturedProductFeaturedProduct;
       'api::footer.footer': ApiFooterFooter;
+      'api::free-shipping-zip.free-shipping-zip': ApiFreeShippingZipFreeShippingZip;
       'api::global.global': ApiGlobalGlobal;
       'api::header.header': ApiHeaderHeader;
       'api::landing.landing': ApiLandingLanding;
       'api::newsletter-subscription.newsletter-subscription': ApiNewsletterSubscriptionNewsletterSubscription;
+      'api::order-change.order-change': ApiOrderChangeOrderChange;
       'api::order-item.order-item': ApiOrderItemOrderItem;
       'api::order.order': ApiOrderOrder;
       'api::product-attribute-value.product-attribute-value': ApiProductAttributeValueProductAttributeValue;
